@@ -31,10 +31,13 @@ class ConverterGUI:
         self.resize_var = tk.BooleanVar(value=False)
         self.aspect_var = tk.BooleanVar(value=True)
 
-        # Устанавливаем полноэкранный режим
+        # Устанавливаем полноэкранный режим и запрещаем выход
         self.root.attributes('-fullscreen', True)
-        self.root.bind('<Escape>', lambda e: self.root.attributes('-fullscreen', False))
-        self.root.bind('<F11>', lambda e: self.root.attributes('-fullscreen', not self.root.attributes('-fullscreen')))
+
+        # Блокируем стандартные сочетания клавиш для выхода из полноэкранного режима
+        self.root.bind('<Escape>', lambda e: "break")  # Блокируем Escape
+        self.root.bind('<F11>', lambda e: "break")  # Блокируем F11
+        self.root.bind('<Alt-Return>', lambda e: "break")  # Блокируем Alt+Enter
 
         self.setup_ui()
         self.setup_styles()
@@ -147,13 +150,6 @@ class ConverterGUI:
 
         tk.Label(logo_frame, text="GAGARIN BRIDGE", font=self.title_font,
                  bg=self.bg_color, fg=self.text_color).pack(side="left", padx=15)
-
-        # Кнопка выхода из полноэкранного режима
-        exit_fullscreen_btn = tk.Button(header_frame, text="⤢", font=('Segoe UI', 16),
-                                        bg=self.bg_color, fg=self.secondary_text, bd=0,
-                                        activebackground="#252525", activeforeground=self.text_color,
-                                        command=lambda: self.root.attributes('-fullscreen', False))
-        exit_fullscreen_btn.pack(side="right")
 
         # Основной контент
         content_frame = ttk.Frame(main_container, style="TFrame")

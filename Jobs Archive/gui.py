@@ -107,14 +107,16 @@ class FormatSelectorDialog:
 class JobsArchiveApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Jobs Archive - Video Downloader")
+        self.root.title("Jobs Archive")
         self.functions = JobsArchiveFunctions(self)
 
-        # Настройка полноэкранного режима (включаем по умолчанию)
+        # Принудительный полноэкранный режим без возможности выхода
         self.fullscreen = True
         self.root.attributes('-fullscreen', self.fullscreen)
-        self.root.bind('<Escape>', self.toggle_fullscreen)
-        self.root.bind('<F11>', self.toggle_fullscreen)
+
+        # Блокируем клавиши для выхода из полноэкранного режима
+        self.root.bind('<Escape>', lambda e: None)
+        self.root.bind('<F11>', lambda e: None)
 
         # Темная цветовая палитра
         self.bg_color = "#121212"
@@ -136,24 +138,6 @@ class JobsArchiveApp:
         # Устанавливаем фокус на поле ввода при запуске
         self.root.after(100, self.focus_url_entry)
 
-    def toggle_fullscreen(self, event=None):
-        """Переключает полноэкранный режим"""
-        self.fullscreen = not self.fullscreen
-        self.root.attributes('-fullscreen', self.fullscreen)
-        if not self.fullscreen:
-            # При выходе из полноэкранного режима возвращаем нормальный размер
-            window_width = 1200
-            window_height = 800
-            screen_width = self.root.winfo_screenwidth()
-            screen_height = self.root.winfo_screenheight()
-            x = (screen_width // 2) - (window_width // 2)
-            y = (screen_height // 2) - (window_height // 2)
-            self.root.geometry(f"{window_width}x{window_height}+{x}+{y}")
-
-        # Возвращаем фокус на поле ввода
-        self.root.after(100, self.focus_url_entry)
-        return "break"
-
     def focus_url_entry(self):
         """Устанавливает фокус на поле ввода URL"""
         self.url_entry.focus_set()
@@ -171,17 +155,6 @@ class JobsArchiveApp:
 
         tk.Label(header_frame, text="JOBS ARCHIVE", bg=self.bg_color,
                  fg=self.accent_color, font=self.title_font).pack(side="left")
-
-        tk.Label(header_frame, text="YouTube & TikTok Downloader", bg=self.bg_color,
-                 fg=self.secondary_text, font=('Segoe UI', 12)).pack(side="left", padx=(10, 0))
-
-        # Кнопка полноэкранного режима
-        fullscreen_btn = tk.Button(header_frame, text="⛶", font=('Segoe UI', 14),
-                                   bg=self.bg_color, fg=self.secondary_text, bd=0,
-                                   command=lambda: self.toggle_fullscreen())
-        fullscreen_btn.pack(side="right")
-        fullscreen_btn.bind("<Enter>", lambda e: fullscreen_btn.config(fg=self.accent_color))
-        fullscreen_btn.bind("<Leave>", lambda e: fullscreen_btn.config(fg=self.secondary_text))
 
         # Поле ввода URL
         input_frame = tk.Frame(main_frame, bg=self.card_color, padx=15, pady=15)

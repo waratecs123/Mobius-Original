@@ -1,9 +1,10 @@
+# main.py (без изменений)
 import tkinter as tk
-from gui import BeatPadGUI
+from gui import VideoEditorGUI
 
 def main():
     root = tk.Tk()
-    app = BeatPadGUI(root)
+    app = VideoEditorGUI(root)
     root.mainloop()
 
 if __name__ == "__main__":
