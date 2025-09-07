@@ -1,11 +1,8 @@
-# main.py (без изменений)
+# main.py
 import tkinter as tk
-from gui import VideoEditorGUI
-
-def main():
-    root = tk.Tk()
-    app = VideoEditorGUI(root)
-    root.mainloop()
+from gui import LumiereCutPro
 
 if __name__ == "__main__":
-    main()
+    root = tk.Tk()
+    app = LumiereCutPro(root)
+    root.mainloop()

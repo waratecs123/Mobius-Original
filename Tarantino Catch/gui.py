@@ -18,6 +18,21 @@ class TarantinoCatch:
         self.root = root
         self.root.title("Tarantino Catch - Цифровой режиссёр")
 
+        # Современная цветовая палитра в стиле Fibonacci Scan
+        self.bg_color = "#0f0f23"
+        self.sidebar_color = "#1a1a2e"
+        self.card_color = "#1a1a2e"
+        self.accent_color = "#6366f1"
+        self.text_color = "#e2e8f0"
+        self.secondary_text = "#94a3b8"
+        self.border_color = "#2d3748"
+
+        # Шрифты
+        self.title_font = ('Arial', 20, 'bold')
+        self.app_font = ('Arial', 13)
+        self.button_font = ('Arial', 12)
+        self.small_font = ('Arial', 11)
+
         # Устанавливаем полноэкранный режим
         self.root.attributes('-fullscreen', True)
         self.fullscreen_state = True
@@ -26,15 +41,6 @@ class TarantinoCatch:
         self.root.bind('<Escape>', lambda e: "break")
         self.root.bind('<F11>', lambda e: "break")
         self.root.bind('<Alt-Return>', lambda e: "break")
-
-        # Современная цветовая палитра
-        self.bg_color = "#0f0f0f"
-        self.sidebar_color = "#1a1a1a"
-        self.card_color = "#2a2a2a"
-        self.accent_color = "#ff4d4d"  # Яркий акцентный цвет
-        self.text_color = "#ffffff"
-        self.secondary_text = "#b0b0b0"
-        self.border_color = "#404040"
 
         self.root.configure(bg=self.bg_color)
 
@@ -61,11 +67,12 @@ class TarantinoCatch:
         self.audio_recorder = None
         self.preview_updater = None
 
+        self.setup_styles()
         self.setup_ui()
         self.start_preview()
 
-    def setup_ui(self):
-        # Стилизация
+    def setup_styles(self):
+        # Стили для виджетов
         style = ttk.Style()
         style.theme_use('clam')
 
@@ -73,99 +80,87 @@ class TarantinoCatch:
         style.configure(".", background=self.bg_color, foreground=self.text_color)
         style.configure("TFrame", background=self.bg_color)
         style.configure("Sidebar.TFrame", background=self.sidebar_color)
-        style.configure("Card.TFrame", background=self.card_color, relief="flat", borderwidth=1)
-        style.configure("TLabel", background=self.card_color, foreground=self.text_color)
-        style.configure("Title.TLabel", font=("Segoe UI", 20, "bold"), foreground=self.accent_color)
-        style.configure("Subtitle.TLabel", font=("Segoe UI", 11), foreground=self.secondary_text)
-        style.configure("TButton", background=self.card_color, foreground=self.text_color,
-                        borderwidth=1, focusthickness=3, focuscolor=self.accent_color)
-        style.configure("Accent.TButton", background=self.accent_color, foreground="#ffffff")
-        style.configure("TCombobox", fieldbackground=self.card_color, background=self.card_color,
-                        foreground=self.text_color)
-        style.configure("TNotebook", background=self.bg_color, borderwidth=0)
-        style.configure("TNotebook.Tab", background=self.sidebar_color, foreground=self.secondary_text,
-                        padding=[15, 5], font=("Segoe UI", 10))
-        style.map("TNotebook.Tab", background=[("selected", self.card_color)],
-                  foreground=[("selected", self.text_color)])
+        style.configure("Card.TFrame", background=self.card_color, relief="flat", borderwidth=0)
+        style.configure("TLabel", background=self.card_color, foreground=self.text_color, font=self.small_font)
+        style.configure("Title.TLabel", font=self.title_font, foreground=self.accent_color)
+        style.configure("Subtitle.TLabel", font=self.small_font, foreground=self.secondary_text)
 
+        # Стиль для кнопок
+        style.configure('Accent.TButton',
+                        background=self.accent_color,
+                        foreground='white',
+                        borderwidth=0,
+                        font=self.button_font)
+        style.map('Accent.TButton',
+                  background=[('active', '#4f46e5')])
+
+        style.configure('Secondary.TButton',
+                        background='#2d3748',
+                        foreground=self.text_color,
+                        borderwidth=0,
+                        font=self.button_font)
+        style.map('Secondary.TButton',
+                  background=[('active', '#374151')])
+
+        style.configure("TCombobox", fieldbackground="#252525", background="#252525",
+                        foreground=self.text_color, borderwidth=0)
+        style.configure("TNotebook", background=self.bg_color, borderwidth=0)
+        style.configure("TNotebook.Tab", background="#252525", foreground=self.secondary_text,
+                        padding=[15, 8], font=self.small_font)
+        style.map("TNotebook.Tab", background=[("selected", self.card_color)],
+                  foreground=[("selected", self.accent_color)])
+
+    def setup_ui(self):
         # Главный контейнер
         main_container = ttk.Frame(self.root, style="TFrame")
-        main_container.pack(fill='both', expand=True, padx=0, pady=0)
+        main_container.pack(fill='both', expand=True, padx=30, pady=30)
 
         # Сайдбар
         sidebar = ttk.Frame(main_container, width=280, style="Sidebar.TFrame")
-        sidebar.pack(side="left", fill="y", padx=(0, 1))
+        sidebar.pack(side="left", fill="y", padx=(0, 20))
         sidebar.pack_propagate(False)
 
+        # Верхняя часть сайдбара
+        top_sidebar = tk.Frame(sidebar, bg=self.sidebar_color)
+        top_sidebar.pack(fill="x", pady=(30, 40), padx=25)
+
         # Логотип и название
-        logo_frame = ttk.Frame(sidebar, style="Sidebar.TFrame")
-        logo_frame.pack(pady=(20, 30), padx=20, fill="x")
+        logo_frame = tk.Frame(top_sidebar, bg=self.sidebar_color)
+        logo_frame.pack(fill="x")
 
-        # Простой современный логотип
-        logo_canvas = tk.Canvas(logo_frame, bg=self.sidebar_color, width=32, height=32,
-                                highlightthickness=0, bd=0)
-        logo_canvas.pack(side="left")
-        # Минималистичный логотип - красный квадрат
-        logo_canvas.create_rectangle(4, 4, 28, 28, fill=self.accent_color, outline="")
-
-        tk.Label(logo_frame, text="TARANTINO CATCH", font=('Segoe UI', 14, 'bold'),
-                 bg=self.sidebar_color, fg=self.text_color).pack(side="left", padx=12)
+        tk.Label(logo_frame, text="TARANTINO", bg=self.sidebar_color,
+                 fg=self.accent_color, font=('Arial', 24, 'bold')).pack(side="left")
+        tk.Label(logo_frame, text="CATCH", bg=self.sidebar_color,
+                 fg=self.text_color, font=('Arial', 24, 'bold')).pack(side="left", padx=(5, 0))
 
         # Основная область
         self.main_area = ttk.Frame(main_container, style="TFrame")
         self.main_area.pack(side="right", fill="both", expand=True)
 
-        # Заголовок и кнопки управления
-        header_frame = ttk.Frame(self.main_area, style="TFrame")
-        header_frame.pack(fill="x", padx=25, pady=(25, 15))
+        # Заголовок
+        header_frame = tk.Frame(self.main_area, bg=self.bg_color)
+        header_frame.pack(fill="x", pady=(0, 25))
 
-
-        # Кнопки управления записью
-        control_frame = ttk.Frame(header_frame, style="TFrame")
-        control_frame.pack(side="right")
-
-        # Стилизованные кнопки
-        self.record_button = tk.Button(control_frame, text="● Начать запись", font=('Segoe UI', 11),
-                                       bg=self.accent_color, fg="#ffffff", bd=0,
-                                       activebackground="#e03c3c", padx=20, pady=10,
-                                       command=self.toggle_recording, cursor="hand2")
-        self.record_button.pack(side="left", padx=(0, 8))
-
-        self.pause_button = tk.Button(control_frame, text="⏸️ Пауза", font=('Segoe UI', 11),
-                                      bg="#404040", fg="#ffffff", bd=0,
-                                      activebackground="#505050", padx=20, pady=10,
-                                      command=self.toggle_pause, state=tk.DISABLED, cursor="hand2")
-        self.pause_button.pack(side="left", padx=(0, 8))
-
-        self.stop_button = tk.Button(control_frame, text="⏹️ Завершить", font=('Segoe UI', 11),
-                                     bg="#404040", fg="#ffffff", bd=0,
-                                     activebackground="#505050", padx=20, pady=10,
-                                     command=self.stop_recording, state=tk.DISABLED, cursor="hand2")
-        self.stop_button.pack(side="left")
-
-        # Новая кнопка для записи только вебкамеры
-        self.camera_only_button = tk.Button(control_frame, text="📷 Только камера", font=('Segoe UI', 11),
-                                            bg="#404040", fg="#ffffff", bd=0,
-                                            activebackground="#505050", padx=20, pady=10,
-                                            command=self.toggle_camera_only, cursor="hand2")
-        self.camera_only_button.pack(side="left", padx=(8, 0))
+        self.section_title = tk.Label(header_frame, text="Запись экрана",
+                                      bg=self.bg_color, fg=self.text_color, font=self.title_font)
+        self.section_title.pack(side="left")
 
         # Контент с вкладками
         self.notebook = ttk.Notebook(self.main_area, style="TNotebook")
-        self.notebook.pack(fill='both', expand=True, padx=20, pady=(0, 20))
+        self.notebook.pack(fill='both', expand=True)
 
         # Вкладка основной записи
         main_frame = ttk.Frame(self.notebook, style="Card.TFrame", padding="20")
-        self.notebook.add(main_frame, text="Основная запись")
+        self.notebook.add(main_frame, text="🎥 Основная запись")
 
         # Левая панель - настройки
         settings_frame = ttk.LabelFrame(main_frame, text="Настройки записи", padding="15", style="Card.TFrame")
         settings_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 15))
 
         # Настройки разрешения
-        ttk.Label(settings_frame, text="Разрешение записи:", font=("Segoe UI", 10)).grid(row=0, column=0,
-                                                                                         sticky=tk.W,
-                                                                                         pady=(0, 8))
+        ttk.Label(settings_frame, text="Разрешение записи:", style="TLabel").grid(row=0, column=0,
+                                                                                  sticky=tk.W,
+                                                                                  pady=(0, 8))
 
         self.resolution_var = tk.StringVar(value="1920x1080")
         resolutions = [
@@ -196,9 +191,9 @@ class TarantinoCatch:
         ttk.Entry(custom_frame, textvariable=self.custom_height_var, width=8).grid(row=1, column=3, pady=(5, 0))
 
         # Настройки битрейта
-        ttk.Label(settings_frame, text="Битрейт видео:", font=("Segoe UI", 10)).grid(row=3, column=0,
-                                                                                     sticky=tk.W,
-                                                                                     pady=(15, 8))
+        ttk.Label(settings_frame, text="Битрейт видео:", style="TLabel").grid(row=3, column=0,
+                                                                              sticky=tk.W,
+                                                                              pady=(15, 8))
 
         self.bitrate_var = tk.StringVar(value="15")
         bitrate_combo = ttk.Combobox(settings_frame, textvariable=self.bitrate_var,
@@ -206,9 +201,9 @@ class TarantinoCatch:
         bitrate_combo.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 15))
 
         # Настройки FPS
-        ttk.Label(settings_frame, text="Частота кадров:", font=("Segoe UI", 10)).grid(row=5, column=0,
-                                                                                      sticky=tk.W,
-                                                                                      pady=(15, 8))
+        ttk.Label(settings_frame, text="Частота кадров:", style="TLabel").grid(row=5, column=0,
+                                                                               sticky=tk.W,
+                                                                               pady=(15, 8))
 
         self.fps_var = tk.StringVar(value="30")
         fps_combo = ttk.Combobox(settings_frame, textvariable=self.fps_var,
@@ -216,9 +211,9 @@ class TarantinoCatch:
         fps_combo.grid(row=6, column=0, sticky=(tk.W, tk.E), pady=(0, 15))
 
         # Настройки захвата видео
-        ttk.Label(settings_frame, text="Источники видео:", font=("Segoe UI", 10)).grid(row=7, column=0,
-                                                                                       sticky=tk.W,
-                                                                                       pady=(15, 8))
+        ttk.Label(settings_frame, text="Источники видео:", style="TLabel").grid(row=7, column=0,
+                                                                                sticky=tk.W,
+                                                                                pady=(15, 8))
 
         capture_frame = ttk.Frame(settings_frame, style="TFrame")
         capture_frame.grid(row=8, column=0, sticky=(tk.W, tk.E), pady=(0, 15))
@@ -255,9 +250,9 @@ class TarantinoCatch:
         self.scale_value_label = scale_value_label
 
         # Настройки аудио
-        ttk.Label(settings_frame, text="Настройки аудио:", font=("Segoe UI", 10)).grid(row=13, column=0,
-                                                                                       sticky=tk.W,
-                                                                                       pady=(15, 8))
+        ttk.Label(settings_frame, text="Настройки аудио:", style="TLabel").grid(row=13, column=0,
+                                                                                sticky=tk.W,
+                                                                                pady=(15, 8))
 
         audio_frame = ttk.Frame(settings_frame, style="TFrame")
         audio_frame.grid(row=14, column=0, sticky=(tk.W, tk.E), pady=(0, 15))
@@ -287,10 +282,10 @@ class TarantinoCatch:
         button_frame.grid(row=19, column=0, sticky=(tk.W, tk.E))
 
         ttk.Button(button_frame, text="Сохранить видео",
-                   command=self.save_video, style="TButton").pack(fill=tk.X, pady=(0, 10))
+                   command=self.save_video, style="Secondary.TButton").pack(fill=tk.X, pady=(0, 10))
 
         ttk.Button(button_frame, text="Настройки предпросмотра",
-                   command=self.open_preview_settings, style="TButton").pack(fill=tk.X)
+                   command=self.open_preview_settings, style="Secondary.TButton").pack(fill=tk.X)
 
         # Правая панель - предпросмотр
         preview_frame = ttk.LabelFrame(main_frame, text="Предпросмотр - Перетащите камеру для изменения позиции",
@@ -298,7 +293,7 @@ class TarantinoCatch:
         preview_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         # Canvas для предпросмотра
-        self.preview_canvas = tk.Canvas(preview_frame, bg=self.card_color, highlightthickness=0, bd=0)
+        self.preview_canvas = tk.Canvas(preview_frame, bg="#252525", highlightthickness=0, bd=0)
         self.preview_canvas.pack(expand=True, fill=tk.BOTH)
 
         # Привязка событий перетаскивания для всего canvas
@@ -306,20 +301,53 @@ class TarantinoCatch:
         self.preview_canvas.bind("<B1-Motion>", self.drag_camera)
         self.preview_canvas.bind("<ButtonRelease-1>", self.stop_drag)
 
+        # Кнопки управления записью
+        control_frame = tk.Frame(main_frame, bg=self.card_color)
+        control_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(20, 0))
+
+        # Стилизованные кнопки
+        self.record_button = tk.Button(control_frame, text="● Начать запись", font=self.button_font,
+                                       bg=self.accent_color, fg="#ffffff", bd=0,
+                                       activebackground="#4f46e5", padx=20, pady=12,
+                                       command=self.toggle_recording, cursor="hand2")
+        self.record_button.pack(side="left", padx=(0, 10))
+
+        self.pause_button = tk.Button(control_frame, text="⏸️ Пауза", font=self.button_font,
+                                      bg="#2d3748", fg="#ffffff", bd=0,
+                                      activebackground="#374151", padx=20, pady=12,
+                                      command=self.toggle_pause, state=tk.DISABLED, cursor="hand2")
+        self.pause_button.pack(side="left", padx=(0, 10))
+
+        self.stop_button = tk.Button(control_frame, text="⏹️ Завершить", font=self.button_font,
+                                     bg="#2d3748", fg="#ffffff", bd=0,
+                                     activebackground="#374151", padx=20, pady=12,
+                                     command=self.stop_recording, state=tk.DISABLED, cursor="hand2")
+        self.stop_button.pack(side="left", padx=(0, 10))
+
+        # Новая кнопка для записи только вебкамеры
+        self.camera_only_button = tk.Button(control_frame, text="📷 Только камера", font=self.button_font,
+                                            bg="#2d3748", fg="#ffffff", bd=0,
+                                            activebackground="#374151", padx=20, pady=12,
+                                            command=self.toggle_camera_only, cursor="hand2")
+        self.camera_only_button.pack(side="left")
+
         # Статус бар
-        status_frame = ttk.Frame(main_frame, style="TFrame")
-        status_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(20, 0))
+        status_frame = tk.Frame(main_frame, bg=self.card_color)
+        status_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(15, 0))
 
         self.status_var = tk.StringVar(value="Готов к записи")
-        status_label = ttk.Label(status_frame, textvariable=self.status_var, style="TLabel")
+        status_label = tk.Label(status_frame, textvariable=self.status_var,
+                                bg=self.card_color, fg=self.secondary_text, font=self.small_font)
         status_label.pack(side=tk.LEFT)
 
         self.time_var = tk.StringVar(value="00:00:00")
-        time_label = ttk.Label(status_frame, textvariable=self.time_var, style="TLabel")
+        time_label = tk.Label(status_frame, textvariable=self.time_var,
+                              bg=self.card_color, fg=self.secondary_text, font=self.small_font)
         time_label.pack(side=tk.RIGHT)
 
         # Индикатор записи
-        self.recording_indicator = tk.Canvas(status_frame, width=16, height=16, bg=self.bg_color, highlightthickness=0)
+        self.recording_indicator = tk.Canvas(status_frame, width=16, height=16, bg=self.card_color,
+                                             highlightthickness=0)
         self.recording_indicator.pack(side=tk.LEFT, padx=(10, 0))
         self.recording_circle = self.recording_indicator.create_oval(3, 3, 13, 13, fill="#666666", outline="")
 
@@ -332,8 +360,8 @@ class TarantinoCatch:
         preview_frame.rowconfigure(0, weight=1)
 
         # Вкладка настроек
-        settings_tab = ttk.Frame(self.notebook, style="TFrame")
-        self.notebook.add(settings_tab, text="Дополнительные настройки")
+        settings_tab = ttk.Frame(self.notebook, style="Card.TFrame", padding="20")
+        self.notebook.add(settings_tab, text="⚙️ Дополнительные настройки")
         self.setup_settings_tab(settings_tab)
 
     def setup_settings_tab(self, parent):
@@ -360,8 +388,9 @@ class TarantinoCatch:
         ttk.Label(save_frame, text="Папка для сохранения:").grid(row=0, column=0, sticky=tk.W)
         self.save_dir_var = tk.StringVar(value=os.path.expanduser("~/Videos"))
         ttk.Entry(save_frame, textvariable=self.save_dir_var, width=40).grid(row=0, column=1, sticky=tk.W, padx=(10, 0))
-        ttk.Button(save_frame, text="Обзор", command=self.browse_save_dir, style="TButton").grid(row=0, column=2,
-                                                                                                 padx=(10, 0))
+        ttk.Button(save_frame, text="Обзор", command=self.browse_save_dir, style="Secondary.TButton").grid(row=0,
+                                                                                                           column=2,
+                                                                                                           padx=(10, 0))
 
         ttk.Label(save_frame, text="Формат файла:").grid(row=1, column=0, sticky=tk.W, pady=(10, 0))
         self.file_format_var = tk.StringVar(value="mp4")
@@ -414,7 +443,7 @@ class TarantinoCatch:
             self.camera_enabled = True
             self.screen_var.set(True)
             self.camera_var.set(True)
-            self.camera_only_button.config(bg="#404040", text="📷 Только камера")
+            self.camera_only_button.config(bg="#2d3748", text="📷 Только камера")
 
     def start_drag(self, event):
         """Начало перетаскивания камеры"""

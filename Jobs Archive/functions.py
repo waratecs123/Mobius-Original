@@ -1,251 +1,147 @@
-import yt_dlp
-import threading
+# functions.py
 import os
-import re
+import threading
+import tkinter as tk
+from tkinter import filedialog, messagebox
 from urllib.parse import urlparse
+from yt_dlp import YoutubeDL
+
+# Разрешённые домены
+ALLOWED_HOSTS = {
+    # YouTube
+    "youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be",
+    # TikTok
+    "tiktok.com", "www.tiktok.com", "m.tiktok.com", "vt.tiktok.com",
+    # VK
+    "vk.com", "www.vk.com", "m.vk.com",
+    # Rutube
+    "rutube.ru", "www.rutube.ru",
+    # Dailymotion
+    "dailymotion.com", "www.dailymotion.com",
+    # Bilibili
+    "bilibili.com", "www.bilibili.com", "m.bilibili.com",
+    # Instagram
+    "instagram.com", "www.instagram.com"
+}
+
+
+def is_allowed_url(url: str) -> bool:
+    try:
+        host = urlparse(url).hostname or ""
+        return any(host == h or host.endswith("." + h) for h in ALLOWED_HOSTS)
+    except Exception:
+        return False
+
+
+def build_format(quality: str, audio_only: bool) -> str:
+    if audio_only:
+        return "bestaudio/best"
+    mapping = {
+        "720p": 720, "1080p": 1080, "1440p": 1440,
+        "2160p": 2160, "4320p": 4320, "best": None
+    }
+    target = mapping[quality]
+    if target is None:
+        # прогрессивные форматы (видео+аудио в одном контейнере)
+        return "best[ext=mp4][acodec!=none]/best"
+    return f"best[height<={target}][ext=mp4][acodec!=none]/best[height<={target}]"
 
 
 class JobsArchiveFunctions:
     def __init__(self, gui):
         self.gui = gui
-        self.download_queue = []
-        self.is_downloading = False
-        self.current_download_index = None
-        self.ydl_opts_template = {
-            'outtmpl': 'downloads/%(title)s.%(ext)s',
-            'progress_hooks': [self.download_progress_hook],
-        }
+        self.downloading = False
 
-    def is_valid_url(self, url, platform):
-        """Проверяет, является ли URL допустимым для указанной платформы"""
-        # Игнорируем placeholder текст
-        if url == "Вставьте ссылку YouTube или TikTok здесь...":
-            return False
+    def start_download(self):
+        url = self.gui.url_var.get().strip()
+        quality = self.gui.quality_var.get()
+        audio_only = self.gui.audio_var.get()
+        out_dir = self.gui.out_dir_var.get()
+        proxy = self.gui.proxy_var.get().strip() or None
 
-        if platform == "youtube":
-            # Проверка для YouTube
-            youtube_regex = (
-                r'(https?://)?(www\.)?'
-                r'(youtube|youtu|youtube-nocookie)\.(com|be)/'
-                r'(watch\?v=|embed/|v/|.+\?v=)?([^&=%\?]{11})')
-            return re.match(youtube_regex, url) is not None
-        elif platform == "tiktok":
-            # Проверка для TikTok
-            tiktok_regex = (
-                r'(https?://)?(www\.)?'
-                r'(tiktok\.com|vm\.tiktok\.com)/'
-                r'([a-zA-Z0-9_@.#&+-]+/)?([a-zA-Z0-9_@.#&+-]+)')
-            return re.match(tiktok_regex, url) is not None
-        return False
-
-    def get_video_info(self, url):
-        """Получает информацию о видео"""
-        try:
-            with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
-                info = ydl.extract_info(url, download=False)
-                return info
-        except Exception as e:
-            print(f"Ошибка получения информации: {e}")
-            return None
-
-    def get_available_formats(self, url):
-        """Получает доступные форматы видео"""
-        try:
-            with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
-                info = ydl.extract_info(url, download=False)
-                return info.get('formats', [])
-        except Exception as e:
-            print(f"Ошибка получения форматов: {e}")
-            return []
-
-    def add_to_queue(self):
-        url = self.gui.url_entry.get().strip()
-        if not url or url == "Вставьте ссылку YouTube или TikTok здесь...":
-            self.gui.show_error("Ошибка", "Введите URL видео")
+        if not url or url == "Вставьте ссылку на видео здесь...":
+            self.gui.show_error("Ошибка", "Введите ссылку на видео!")
+            return
+        if not out_dir:
+            self.gui.show_error("Ошибка", "Выберите папку для сохранения!")
             return
 
-        # Проверяем, является ли URL YouTube или TikTok
-        is_youtube = self.is_valid_url(url, "youtube")
-        is_tiktok = self.is_valid_url(url, "tiktok")
-
-        if not (is_youtube or is_tiktok):
-            self.gui.show_error("Недопустимый URL", "Поддерживаются только YouTube и TikTok ссылки")
+        if not is_allowed_url(url):
+            self.gui.show_error("Ошибка", "Источник не поддерживается этим загрузчиком.")
             return
 
-        # Запускаем в отдельном потоке, чтобы не блокировать интерфейс
-        thread = threading.Thread(target=self._process_video_add, args=(url, is_tiktok))
-        thread.daemon = True
-        thread.start()
-
-    def _process_video_add(self, url, is_tiktok):
-        """Обрабатывает добавление видео в очередь (в отдельном потоке)"""
-        # Получаем информацию о видео
-        video_info = self.get_video_info(url)
-        if not video_info:
-            self.gui.root.after(0, lambda: self.gui.show_error("Ошибка", "Не удалось получить информацию о видео"))
-            return
-
-        # Получаем доступные форматы
-        formats = self.get_available_formats(url)
-        if not formats:
-            self.gui.root.after(0, lambda: self.gui.show_error("Ошибка", "Не удалось получить доступные форматы"))
-            return
-
-        # Фильтруем только видео форматы
-        video_formats = [fmt for fmt in formats if fmt.get('vcodec') != 'none']
-
-        if not video_formats:
-            self.gui.root.after(0, lambda: self.gui.show_error("Ошибка", "Не найдено подходящих видео форматов"))
-            return
-
-        # Показываем диалог выбора формата в главном потоке
-        def show_dialog():
-            selected_format = self.gui.show_format_selector(video_formats, is_tiktok)
-            if selected_format:
-                # Добавляем новую загрузку в очередь
-                self.download_queue.append({
-                    "status": "В очереди",
-                    "progress": "0%",
-                    "size": "—",
-                    "speed": "—",
-                    "url": url,
-                    "format_id": selected_format['format_id'],
-                    "format_note": selected_format.get('format_note', 'N/A'),
-                    "fps": selected_format.get('fps', 'N/A'),
-                    "title": video_info.get('title', 'Без названия'),
-                    "platform": "TikTok" if is_tiktok else "YouTube"
-                })
-                self.update_queue_display()
-                # Очищаем поле ввода
-                self.gui.url_entry.delete(0, "end")
-                self.gui.url_entry.config(fg=self.gui.text_color)
-                # Возвращаем фокус на поле ввода
-                self.gui.root.after(100, self.gui.focus_url_entry)
-
-        self.gui.root.after(0, show_dialog)
-
-    def download_progress_hook(self, d):
-        """Обратный вызов для отслеживания прогресса загрузки"""
-        if d['status'] == 'downloading':
-            # Обновляем прогресс в очереди
-            if self.current_download_index is not None:
-                item = self.download_queue[self.current_download_index]
-
-                # Расчет процентов
-                if d.get('total_bytes'):
-                    percent = d['downloaded_bytes'] / d['total_bytes'] * 100
-                    item['progress'] = f"{percent:.1f}%"
-                    item['size'] = f"{d['total_bytes'] / (1024 * 1024):.1f}MB"
-                elif d.get('total_bytes_estimate'):
-                    percent = d['downloaded_bytes'] / d['total_bytes_estimate'] * 100
-                    item['progress'] = f"{percent:.1f}%"
-                    item['size'] = f"{d['total_bytes_estimate'] / (1024 * 1024):.1f}MB"
-
-                # Скорость загрузки
-                if d.get('speed'):
-                    speed_mb = d['speed'] / (1024 * 1024)
-                    item['speed'] = f"{speed_mb:.1f}MB/s"
-
-                self.update_queue_display()
-
-        elif d['status'] == 'finished':
-            if self.current_download_index is not None:
-                self.download_queue[self.current_download_index]['status'] = "Завершено"
-                self.download_queue[self.current_download_index]['progress'] = "100%"
-                self.update_queue_display()
-                self.start_next_download()
-
-    def start_downloads(self):
-        if not self.download_queue:
-            return
-
-        self.is_downloading = True
-        self.start_next_download()
-
-    def start_next_download(self):
-        """Начинает следующую загрузку в очереди"""
-        if not self.is_downloading:
-            return
-
-        # Ищем следующую загрузку в очереди
-        next_index = None
-        for i, item in enumerate(self.download_queue):
-            if item["status"] in ["В очереди", "Приостановлено"]:
-                next_index = i
-                break
-
-        if next_index is None:
-            self.is_downloading = False
-            return
-
-        self.current_download_index = next_index
-        item = self.download_queue[next_index]
-        item["status"] = "Загружается"
-
-        # Настройки для загрузки
-        ydl_opts = self.ydl_opts_template.copy()
-        ydl_opts['format'] = item['format_id']
+        # Очищаем лог перед началом загрузки
+        self.gui.log_text.delete("1.0", tk.END)
+        self.gui.log_text.insert(tk.END, f"Начало загрузки: {url}\n")
 
         # Запускаем загрузку в отдельном потоке
-        thread = threading.Thread(target=self.download_video, args=(item['url'], ydl_opts))
-        thread.daemon = True
-        thread.start()
+        threading.Thread(
+            target=self.download_video,
+            args=(url, quality, audio_only, out_dir, proxy),
+            daemon=True
+        ).start()
 
-        self.update_queue_display()
-
-    def download_video(self, url, ydl_opts):
-        """Загружает видео в отдельном потоке"""
+    def download_video(self, url, quality, audio_only, out_dir, proxy):
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
+            self.downloading = True
+            os.makedirs(out_dir, exist_ok=True)
+
+            ydl_opts = {
+                "outtmpl": os.path.join(out_dir, "%(title).200B [%(id)s].%(ext)s"),
+                "format": build_format(quality, audio_only),
+                "restrictfilenames": True,
+                "progress_hooks": [self.progress_hook],
+                "quiet": True,
+                "socket_timeout": 60,
+                "retries": 10,
+                "fragment_retries": 10,
+                "concurrent_fragment_downloads": 5,
+            }
+
+            if proxy:
+                ydl_opts["proxy"] = proxy
+
+            with YoutubeDL(ydl_opts) as ydl:
+                code = ydl.download([url])
+
+            if code == 0:
+                self.gui.log_text.insert(tk.END, "\n✅ Загрузка завершена.\n")
+                self.gui.show_info("Готово", "Загрузка завершена!")
+            else:
+                raise RuntimeError(f"yt-dlp вернул код {code}")
+
         except Exception as e:
-            print(f"Ошибка загрузки: {e}")
-            if self.current_download_index is not None:
-                self.download_queue[self.current_download_index]['status'] = f"Ошибка: {str(e)}"
-                self.update_queue_display()
-            self.is_downloading = False
+            self.gui.log_text.insert(tk.END, f"\n❌ Ошибка: {e}\n")
+            self.gui.show_error("Ошибка", str(e))
+        finally:
+            self.downloading = False
 
-    def pause_downloads(self):
-        self.is_downloading = False
-        for i, item in enumerate(self.download_queue):
-            if item["status"] == "Загружается":
-                self.download_queue[i]["status"] = "Приостановлено"
-        self.update_queue_display()
+    def progress_hook(self, d):
+        if d.get("status") == "downloading":
+            total = d.get("total_bytes") or d.get("total_bytes_estimate")
+            downloaded = d.get("downloaded_bytes", 0)
+            if total:
+                pct = downloaded / total * 100
+                speed = d.get("speed", 0)
+                speed_str = f"{speed / (1024 * 1024):.1f} MB/s" if speed > 1024 * 1024 else f"{speed / 1024:.1f} KB/s"
 
-    def remove_selected(self):
-        selected = self.gui.queue_tree.selection()
-        # Сортируем в обратном порядке, чтобы индексы оставались корректными при удалении
-        indices_to_remove = []
-        for item in selected:
-            idx = self.gui.queue_tree.index(item)
-            if 0 <= idx < len(self.download_queue):
-                indices_to_remove.append(idx)
+                # Обновляем лог
+                self.gui.log_text.insert(tk.END, f"\r⬇ {pct:.1f}% | {speed_str}\n")
+                self.gui.log_text.see(tk.END)
+        elif d.get("status") == "finished":
+            self.gui.log_text.insert(tk.END, "\nФайл загружен.\n")
 
-        # Удаляем в обратном порядке
-        for idx in sorted(indices_to_remove, reverse=True):
-            # Если удаляем текущую загрузку, останавливаем её
-            if idx == self.current_download_index:
-                self.is_downloading = False
-                self.current_download_index = None
-            del self.download_queue[idx]
-        self.update_queue_display()
+    def choose_dir(self):
+        folder = filedialog.askdirectory()
+        if folder:
+            self.gui.out_dir_var.set(folder)
 
-    def clear_queue(self):
-        self.is_downloading = False
-        self.current_download_index = None
-        self.download_queue = []
-        self.update_queue_display()
-
-    def update_queue_display(self):
-        items = []
-        for item in self.download_queue:
-            items.append((
-                item["status"],
-                item["progress"],
-                item["size"],
-                item["speed"],
-                item["platform"],
-                f"{item['format_note']} ({item['fps']}fps)"
-            ))
-        # Обновляем интерфейс в главном потоке
-        self.gui.root.after(0, lambda: self.gui.update_queue(items))
+    def paste_url(self):
+        try:
+            url = self.gui.root.clipboard_get()
+            self.gui.url_var.set(url)
+            # Убираем placeholder при вставке
+            if self.gui.url_entry.get() == "Вставьте ссылку на видео здесь...":
+                self.gui.url_entry.config(fg=self.gui.text_color)
+        except tk.TclError:
+            self.gui.show_error("Ошибка", "Буфер обмена пуст или не содержит ссылку.")

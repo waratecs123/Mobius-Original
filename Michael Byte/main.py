@@ -10,10 +10,17 @@ class TextEffectEditor:
     def __init__(self, root):
         self.root = root
 
+        # Устанавливаем полноэкранный режим
+        self.root.attributes('-fullscreen', True)
+
+        # Добавляем кнопку выхода из полноэкранного режима
+        self.root.bind('<Escape>', self.toggle_fullscreen)
+        self.root.bind('<F11>', self.toggle_fullscreen)
+
         # Variables
         self.text_content = "Ваш текст здесь"
         self.text_color = "#ffffff"
-        self.bg_color = "transparent"
+        self.bg_color = "#0f0f23"  # Изменен на темный фон как в Fibonacci Scan
         self.font_name = "Arial"
         self.font_size = 48
         self.shadow_color = "#000000"
@@ -21,7 +28,7 @@ class TextEffectEditor:
         self.shadow_blur = 2
         self.stroke_color = "#000000"
         self.stroke_width = 2
-        self.glow_color = "#ff00ff"
+        self.glow_color = "#6366f1"  # Акцентный цвет Fibonacci Scan
         self.glow_intensity = 10
         self.rotation = 0
         self.opacity = 100
@@ -45,18 +52,36 @@ class TextEffectEditor:
         self.gradient_end_canvas = None
         self.preview_canvas = None
 
+        # UI variables dictionary
+        self.ui_vars = {}
+
         # Initialize components
         self.functions = TextEffectFunctions(self)
         self.gui = TextEffectEditorGUI(root, self)
 
-        # Get UI variables
+        # Get UI variables from GUI
         self.ui_vars = self.gui.get_vars()
+
+        # Добавляем недостающие переменные
+        self.ui_vars['gradient_dir_var'] = tk.StringVar(value="horizontal")
+        self.ui_vars['shadow_blur_var'] = tk.IntVar(value=2)
+        self.ui_vars['glow_intensity_var'] = tk.IntVar(value=10)
+        self.ui_vars['emboss_var'] = tk.IntVar(value=0)
+        self.ui_vars['texture_var'] = tk.IntVar(value=0)
+        self.ui_vars['perspective_var'] = tk.IntVar(value=0)
+        self.ui_vars['wave_var'] = tk.IntVar(value=0)
+        self.ui_vars['zoom_var'] = tk.DoubleVar(value=1.0)
+        self.ui_vars['bg_transparent'] = tk.BooleanVar(value=False)
 
         # Bind variable changes
         self.setup_variable_trace()
 
         # Initial update
         self.update_preview()
+
+    def toggle_fullscreen(self, event=None):
+        # Переключение полноэкранного режима
+        self.root.attributes('-fullscreen', not self.root.attributes('-fullscreen'))
 
     def setup_variable_trace(self):
         """Setup tracing for all variables that should update preview"""
@@ -69,11 +94,12 @@ class TextEffectEditor:
         ]
 
         for var_name in variables_to_trace:
-            var = self.ui_vars[var_name]
-            if hasattr(var, 'trace_add'):
-                var.trace_add('write', lambda *args: self.update_preview())
-            elif hasattr(var, 'trace'):
-                var.trace('w', lambda *args: self.update_preview())
+            if var_name in self.ui_vars:
+                var = self.ui_vars[var_name]
+                if hasattr(var, 'trace_add'):
+                    var.trace_add('write', lambda *args: self.update_preview())
+                elif hasattr(var, 'trace'):
+                    var.trace('w', lambda *args: self.update_preview())
 
     def on_mousewheel(self, event):
         # Zoom with mouse wheel
@@ -256,7 +282,8 @@ class TextEffectEditor:
         texture = self.ui_vars['texture_var'].get()
         if texture > 0:
             try:
-                bg_img = bg_img.filter(ImageFilter.SMOOTH_MORE)
+                texture_overlay = self.functions.create_texture_overlay(width, height)
+                bg_img = Image.alpha_composite(bg_img.convert('RGBA'), texture_overlay)
             except:
                 pass
 

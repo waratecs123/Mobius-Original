@@ -5,17 +5,12 @@ import os
 if __name__ == "__main__":
     root = tk.Tk()
 
-    # Устанавливаем полноэкранный режим по умолчанию
+    # Полноэкранный режим при запуске
     root.attributes('-fullscreen', True)
 
-    # Центрирование окна (на случай выхода из полноэкранного режима)
-    window_width = 1200
-    window_height = 800
-    screen_width = root.winfo_screenwidth()
-    screen_height = root.winfo_screenheight()
-    x = (screen_width // 2) - (window_width // 2)
-    y = (screen_height // 2) - (window_height // 2)
-    root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+    # Блокировка клавиш выхода из полноэкранного режима
+    root.bind('<Escape>', lambda e: None)
+    root.bind('<F11>', lambda e: None)
 
     # Иконка приложения
     try:
