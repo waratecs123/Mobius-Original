@@ -67,6 +67,8 @@ Möbius постоянно развивается. Вот взгляд в наш
   <strong>Творите без ограничений. Творите без переключения. Творите с Möbius.</strong>
 </p>
 
+---
+
 
 # ENGLISH VERSION:
 # Möbius: The Unified Platform for Digital Creation
