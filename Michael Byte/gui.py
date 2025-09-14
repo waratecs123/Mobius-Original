@@ -1,645 +1,437 @@
-# [file name]: gui.py (обновленная версия)
 import tkinter as tk
-from tkinter import ttk, colorchooser, filedialog, font, messagebox
-from PIL import Image, ImageDraw, ImageFont, ImageTk, ImageFilter, ImageOps
-import os
-import numpy as np
-
-
-class TextEffectEditorGUI:
-    def __init__(self, root, controller):
-        self.root = root
-        self.controller = controller
-
-        # Цветовая палитра в стиле Fibonacci Scan
-        self.bg_color = "#0f0f23"
-        self.card_color = "#1a1a2e"
-        self.accent_color = "#6366f1"
-        self.text_color = "#e2e8f0"
-        self.secondary_text = "#94a3b8"
-        self.border_color = "#2d3748"
-        self.highlight_color = "#4f46e5"
-
-        # Шрифты
-        self.title_font = ('Arial', 24, 'bold')
-        self.subtitle_font = ('Arial', 16, 'bold')
-        self.app_font = ('Arial', 12)
-        self.button_font = ('Arial', 11, 'bold')
-        self.small_font = ('Arial', 10)
-
-        # Настройка стиля
-        self.setup_styles()
-
-        self.root.title("Michael Byte Text Editor")
-        self.root.configure(bg=self.bg_color)
-        self.root.minsize(1000, 700)
-
-        # Create UI
-        self.create_header()
-        self.create_controls()
-        self.create_preview()
-
-    def setup_styles(self):
-        """Настройка стилей элементов в стиле Fibonacci Scan"""
-        style = ttk.Style()
-        style.theme_use('clam')
-
-        # Основные стили
-        style.configure(".", background=self.bg_color, foreground=self.text_color)
-        style.configure("TFrame", background=self.bg_color)
-        style.configure("Card.TFrame", background=self.card_color, relief="flat", borderwidth=0)
-        style.configure("TLabel", background=self.card_color, foreground=self.text_color, font=self.app_font)
-        style.configure("Title.TLabel", font=self.title_font, foreground=self.accent_color)
-        style.configure("Subtitle.TLabel", foreground=self.secondary_text, font=self.subtitle_font)
-
-        # Стили кнопок
-        style.configure("TButton", background=self.card_color, foreground=self.text_color,
-                        font=self.button_font, borderwidth=0, focuscolor=self.card_color)
-        style.map("TButton",
-                  background=[('active', self.highlight_color), ('pressed', self.highlight_color)],
-                  foreground=[('active', '#ffffff'), ('pressed', '#ffffff')])
-
-        # Акцентные кнопки
-        style.configure("Accent.TButton", background=self.accent_color, foreground="#ffffff",
-                        font=self.button_font, borderwidth=0)
-        style.map("Accent.TButton",
-                  background=[('active', self.highlight_color), ('pressed', self.highlight_color)],
-                  foreground=[('active', '#ffffff'), ('pressed', '#ffffff')])
-
-        # Поля ввода и комбобоксы
-        style.configure("TEntry", fieldbackground="#252525", foreground=self.text_color,
-                        borderwidth=1, bordercolor=self.border_color, padding=8, focuscolor=self.accent_color)
-        style.configure("TCombobox", fieldbackground="#252525", foreground=self.text_color,
-                        selectbackground=self.accent_color, selectforeground="#ffffff",
-                        borderwidth=1, bordercolor=self.border_color, padding=8)
-        style.map('TCombobox', fieldbackground=[('readonly', '#252525')])
-        style.map('TCombobox', selectbackground=[('readonly', self.accent_color)])
-
-        # Слайдеры
-        style.configure("Horizontal.TScale", background=self.card_color, troughcolor="#252525")
-
-        # Notebook стили
-        style.configure("TNotebook", background=self.bg_color, borderwidth=0)
-        style.configure("TNotebook.Tab", background=self.card_color, foreground=self.secondary_text,
-                        padding=[15, 5], font=self.button_font, borderwidth=0)
-        style.map("TNotebook.Tab",
-                  background=[('selected', self.accent_color), ('active', self.highlight_color)],
-                  foreground=[('selected', '#ffffff'), ('active', '#ffffff')])
-
-    def create_header(self):
-        # Header с кнопкой выхода
-        header_frame = ttk.Frame(self.root, style="TFrame")
-        header_frame.pack(fill="x", padx=20, pady=10)
-
-        # Заголовок
-        title_frame = ttk.Frame(header_frame, style="TFrame")
-        title_frame.pack(side="left")
-
-        tk.Label(title_frame, text="MICHAEL BYTE", font=('Arial', 28, 'bold'),
-                 bg=self.bg_color, fg=self.accent_color).pack(side="left")
-        tk.Label(title_frame, text="TEXT EDITOR", font=('Arial', 28, 'bold'),
-                 bg=self.bg_color, fg=self.text_color).pack(side="left", padx=(5, 0))
-
-        # Кнопка выхода из полноэкранного режима
-        exit_fullscreen_btn = ttk.Button(header_frame, text="⤢", style="Accent.TButton",
-                                         command=self.controller.toggle_fullscreen, width=3)
-        exit_fullscreen_btn.pack(side="right", padx=(0, 10))
-
-        # Кнопка выхода
-        exit_btn = ttk.Button(header_frame, text="✕", style="Accent.TButton",
-                              command=self.root.quit, width=3)
-        exit_btn.pack(side="right")
-
-    def create_controls(self):
-        # Главный контейнер
-        main_container = ttk.Frame(self.root, style="TFrame")
-        main_container.pack(fill="both", expand=True, padx=20, pady=10)
-
-        # Основной контент
-        content_frame = ttk.Frame(main_container, style="TFrame")
-        content_frame.pack(fill="both", expand=True)
-
-        # Левая панель - инструменты
-        left_panel = ttk.Frame(content_frame, style="TFrame", width=400)
-        left_panel.pack(side="left", fill="y", padx=(0, 20))
-        left_panel.pack_propagate(False)
-
-        # Правая панель - предпросмотр
-        right_panel = ttk.Frame(content_frame, style="TFrame")
-        right_panel.pack(side="right", fill="both", expand=True)
-
-        # Создаем Notebook для вкладок с улучшенным стилем
-        style = ttk.Style()
-        style.configure("CustomNotebook.TNotebook", tabposition='n',
-                        background=self.bg_color, borderwidth=0)
-        style.configure("CustomNotebook.TNotebook.Tab",
-                        padding=[20, 8], font=('Arial', 12, 'bold'))
-
-        left_notebook = ttk.Notebook(left_panel, style="CustomNotebook.TNotebook")
-        left_notebook.pack(fill="both", expand=True)
-
-        # Вкладка с основными настройками
-        basic_tab = ttk.Frame(left_notebook, style="Card.TFrame", padding=20)
-        left_notebook.add(basic_tab, text="🎨 Основные")
-
-        # Вкладка с эффектами
-        effects_tab = ttk.Frame(left_notebook, style="Card.TFrame", padding=20)
-        left_notebook.add(effects_tab, text="✨ Эффекты")
-
-        # Вкладка с дополнительными настройками
-        advanced_tab = ttk.Frame(left_notebook, style="Card.TFrame", padding=20)
-        left_notebook.add(advanced_tab, text="⚙️ Дополнительно")
-
-        # Заполняем вкладки
-        self.create_basic_tab(basic_tab)
-        self.create_effects_tab(effects_tab)
-        self.create_advanced_tab(advanced_tab)
-
-        # Кнопки экспорта внизу
-        export_frame = ttk.Frame(left_panel, style="Card.TFrame", padding=15)
-        export_frame.pack(fill="x", pady=(15, 0))
-
-        ttk.Button(export_frame, text="📁 Экспорт PNG", style="Accent.TButton",
-                   command=self.controller.export_png).pack(side="left", fill="x", expand=True, padx=2)
-        ttk.Button(export_frame, text="📁 Экспорт JPG", style="Accent.TButton",
-                   command=self.controller.export_jpg).pack(side="left", fill="x", expand=True, padx=2)
-
-    def create_basic_tab(self, parent):
-        """Создает вкладку с основными настройками"""
-        # Создаем Canvas для скроллинга
-        canvas = tk.Canvas(parent, bg=self.card_color, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas, style="Card.TFrame")
-
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        # Привязываем колесо мыши к canvas
-        canvas.bind("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
-
-        tk.Label(scrollable_frame, text="Основные настройки", font=self.subtitle_font,
-                 fg=self.text_color, bg=self.card_color).pack(anchor="w", pady=(0, 15))
-
-        # Текст
-        text_frame = ttk.Frame(scrollable_frame, style="Card.TFrame")
-        text_frame.pack(fill="x", pady=(0, 15))
-
-        tk.Label(text_frame, text="Текст:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        self.text_var = tk.StringVar(value=self.controller.text_content)
-        text_entry = ttk.Entry(text_frame, textvariable=self.text_var, font=self.app_font, style="TEntry")
-        text_entry.pack(fill="x", pady=8)
-        text_entry.bind("<KeyRelease>", lambda e: self.controller.update_preview())
-
-        # Шрифт
-        font_frame = ttk.Frame(scrollable_frame, style="Card.TFrame")
-        font_frame.pack(fill="x", pady=(0, 15))
-
-        tk.Label(font_frame, text="Шрифт:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        self.font_var = tk.StringVar(value=self.controller.font_name)
-        fonts = ['Arial', 'Times New Roman', 'Courier New', 'Verdana',
-                 'Tahoma', 'Georgia', 'Impact', 'Comic Sans MS', 'Trebuchet MS']
-        font_combo = ttk.Combobox(font_frame, textvariable=self.font_var, values=fonts,
-                                  style="TCombobox", state="readonly")
-        font_combo.pack(fill="x", pady=8)
-        font_combo.bind("<<ComboboxSelected>>", lambda e: self.controller.update_preview())
-
-        # Размер шрифта
-        size_frame = ttk.Frame(scrollable_frame, style="Card.TFrame")
-        size_frame.pack(fill="x", pady=(0, 15))
-
-        tk.Label(size_frame, text="Размер:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        self.size_var = tk.IntVar(value=self.controller.font_size)
-        size_scale = ttk.Scale(size_frame, from_=10, to=200, variable=self.size_var,
-                               orient=tk.HORIZONTAL, style="Horizontal.TScale")
-        size_scale.pack(fill="x", pady=8)
-        size_scale.bind("<ButtonRelease-1>", lambda e: self.controller.update_preview())
-
-        # Цвет текста
-        color_frame = ttk.Frame(scrollable_frame, style="Card.TFrame")
-        color_frame.pack(fill="x", pady=(0, 15))
-
-        tk.Label(color_frame, text="Цвет текста:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        color_btn_frame = ttk.Frame(color_frame, style="Card.TFrame")
-        color_btn_frame.pack(fill="x", pady=8)
-
-        ttk.Button(color_btn_frame, text="Выбрать цвет", style="TButton",
-                   command=lambda: self.controller.choose_color("text")).pack(side="left")
-
-        self.controller.text_color_canvas = tk.Label(color_btn_frame, bg=self.controller.text_color,
-                                                     width=3, height=1, relief="sunken", bd=1)
-        self.controller.text_color_canvas.pack(side="left", padx=10)
-
-        # Прозрачность
-        alpha_frame = ttk.Frame(scrollable_frame, style="Card.TFrame")
-        alpha_frame.pack(fill="x", pady=(0, 15))
-
-        tk.Label(alpha_frame, text="Прозрачность:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        self.opacity_var = tk.IntVar(value=self.controller.opacity)
-        alpha_scale = ttk.Scale(alpha_frame, from_=0, to=100, variable=self.opacity_var,
-                                orient=tk.HORIZONTAL, style="Horizontal.TScale")
-        alpha_scale.pack(fill="x", pady=8)
-        alpha_scale.bind("<ButtonRelease-1>", lambda e: self.controller.update_preview())
-
-        # Поворот
-        rotation_frame = ttk.Frame(scrollable_frame, style="Card.TFrame")
-        rotation_frame.pack(fill="x", pady=(0, 15))
-
-        tk.Label(rotation_frame, text="Поворот:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        self.rotation_var = tk.IntVar(value=self.controller.rotation)
-        rotation_scale = ttk.Scale(rotation_frame, from_=-180, to=180, variable=self.rotation_var,
-                                   orient=tk.HORIZONTAL, style="Horizontal.TScale")
-        rotation_scale.pack(fill="x", pady=8)
-        rotation_scale.bind("<ButtonRelease-1>", lambda e: self.controller.update_preview())
-
-    def create_effects_tab(self, parent):
-        """Создает вкладку с эффектами"""
-        # Создаем Canvas для скроллинга
-        canvas = tk.Canvas(parent, bg=self.card_color, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas, style="Card.TFrame")
-
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        # Привязываем колесо мыши к canvas
-        canvas.bind("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
-
-        tk.Label(scrollable_frame, text="Эффекты текста", font=self.subtitle_font,
-                 fg=self.text_color, bg=self.card_color).pack(anchor="w", pady=(0, 15))
-
-        # Обводка
-        stroke_frame = ttk.Frame(scrollable_frame, style="Card.TFrame")
-        stroke_frame.pack(fill="x", pady=(0, 15))
-
-        tk.Label(stroke_frame, text="Обводка:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        stroke_content_frame = ttk.Frame(stroke_frame, style="Card.TFrame")
-        stroke_content_frame.pack(fill="x", pady=8)
-
-        # Толщина обводки
-        width_frame = ttk.Frame(stroke_content_frame, style="Card.TFrame")
-        width_frame.pack(fill="x", pady=(0, 10))
-
-        tk.Label(width_frame, text="Толщина:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        self.stroke_width_var = tk.IntVar(value=self.controller.stroke_width)
-        stroke_scale = ttk.Scale(width_frame, from_=0, to=20, variable=self.stroke_width_var,
-                                 orient=tk.HORIZONTAL, style="Horizontal.TScale")
-        stroke_scale.pack(fill="x", pady=8)
-        stroke_scale.bind("<ButtonRelease-1>", lambda e: self.controller.update_preview())
-
-        # Цвет обводки
-        color_frame = ttk.Frame(stroke_content_frame, style="Card.TFrame")
-        color_frame.pack(fill="x")
-
-        tk.Label(color_frame, text="Цвет:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        color_btn_frame = ttk.Frame(color_frame, style="Card.TFrame")
-        color_btn_frame.pack(fill="x", pady=8)
-
-        ttk.Button(color_btn_frame, text="Выбрать цвет", style="TButton",
-                   command=lambda: self.controller.choose_color("stroke")).pack(side="left")
-
-        self.controller.stroke_color_canvas = tk.Label(color_btn_frame, bg=self.controller.stroke_color,
-                                                       width=3, height=1, relief="sunken", bd=1)
-        self.controller.stroke_color_canvas.pack(side="left", padx=10)
-
-        # Тень
-        shadow_frame = ttk.Frame(scrollable_frame, style="Card.TFrame")
-        shadow_frame.pack(fill="x", pady=(0, 15))
-
-        tk.Label(shadow_frame, text="Тень:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        # Смещение тени
-        offset_frame = ttk.Frame(shadow_frame, style="Card.TFrame")
-        offset_frame.pack(fill="x", pady=(0, 10))
-
-        tk.Label(offset_frame, text="Смещение:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        self.shadow_offset_var = tk.IntVar(value=self.controller.shadow_offset)
-        offset_scale = ttk.Scale(offset_frame, from_=0, to=50, variable=self.shadow_offset_var,
-                                 orient=tk.HORIZONTAL, style="Horizontal.TScale")
-        offset_scale.pack(fill="x", pady=8)
-        offset_scale.bind("<ButtonRelease-1>", lambda e: self.controller.update_preview())
-
-        # Размытие тени
-        blur_frame = ttk.Frame(shadow_frame, style="Card.TFrame")
-        blur_frame.pack(fill="x", pady=(0, 10))
-
-        tk.Label(blur_frame, text="Размытие:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        self.shadow_blur_var = tk.IntVar(value=self.controller.shadow_blur)
-        blur_scale = ttk.Scale(blur_frame, from_=0, to=20, variable=self.shadow_blur_var,
-                               orient=tk.HORIZONTAL, style="Horizontal.TScale")
-        blur_scale.pack(fill="x", pady=8)
-        blur_scale.bind("<ButtonRelease-1>", lambda e: self.controller.update_preview())
-
-        # Цвет тени
-        shadow_color_frame = ttk.Frame(shadow_frame, style="Card.TFrame")
-        shadow_color_frame.pack(fill="x")
-
-        tk.Label(shadow_color_frame, text="Цвет:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        shadow_color_btn_frame = ttk.Frame(shadow_color_frame, style="Card.TFrame")
-        shadow_color_btn_frame.pack(fill="x", pady=8)
-
-        ttk.Button(shadow_color_btn_frame, text="Выбрать цвет", style="TButton",
-                   command=lambda: self.controller.choose_color("shadow")).pack(side="left")
-
-        self.controller.shadow_color_canvas = tk.Label(shadow_color_btn_frame, bg=self.controller.shadow_color,
-                                                       width=3, height=1, relief="sunken", bd=1)
-        self.controller.shadow_color_canvas.pack(side="left", padx=10)
-
-        # Свечение
-        glow_frame = ttk.Frame(scrollable_frame, style="Card.TFrame")
-        glow_frame.pack(fill="x", pady=(0, 15))
-
-        tk.Label(glow_frame, text="Свечение:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        # Интенсивность свечения
-        intensity_frame = ttk.Frame(glow_frame, style="Card.TFrame")
-        intensity_frame.pack(fill="x", pady=(0, 10))
-
-        tk.Label(intensity_frame, text="Интенсивность:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        self.glow_intensity_var = tk.IntVar(value=self.controller.glow_intensity)
-        intensity_scale = ttk.Scale(intensity_frame, from_=0, to=50, variable=self.glow_intensity_var,
-                                    orient=tk.HORIZONTAL, style="Horizontal.TScale")
-        intensity_scale.pack(fill="x", pady=8)
-        intensity_scale.bind("<ButtonRelease-1>", lambda e: self.controller.update_preview())
-
-        # Цвет свечения
-        glow_color_frame = ttk.Frame(glow_frame, style="Card.TFrame")
-        glow_color_frame.pack(fill="x")
-
-        tk.Label(glow_color_frame, text="Цвет:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        glow_color_btn_frame = ttk.Frame(glow_color_frame, style="Card.TFrame")
-        glow_color_btn_frame.pack(fill="x", pady=8)
-
-        ttk.Button(glow_color_btn_frame, text="Выбрать цвет", style="TButton",
-                   command=lambda: self.controller.choose_color("glow")).pack(side="left")
-
-        self.controller.glow_color_canvas = tk.Label(glow_color_btn_frame, bg=self.controller.glow_color,
-                                                     width=3, height=1, relief="sunken", bd=1)
-        self.controller.glow_color_canvas.pack(side="left", padx=10)
-
-    def create_advanced_tab(self, parent):
-        """Создает вкладку с дополнительными настройками"""
-        # Создаем Canvas для скроллинга
-        canvas = tk.Canvas(parent, bg=self.card_color, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas, style="Card.TFrame")
-
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        # Привязываем колесо мыши к canvas
-        canvas.bind("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
-
-        tk.Label(scrollable_frame, text="Дополнительные настройки", font=self.subtitle_font,
-                 fg=self.text_color, bg=self.card_color).pack(anchor="w", pady=(0, 15))
-
-        # Градиент
-        gradient_frame = ttk.Frame(scrollable_frame, style="Card.TFrame")
-        gradient_frame.pack(fill="x", pady=(0, 15))
-
-        tk.Label(gradient_frame, text="Градиент:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        # Начальный цвет градиента
-        start_frame = ttk.Frame(gradient_frame, style="Card.TFrame")
-        start_frame.pack(fill="x", pady=(0, 10))
-
-        tk.Label(start_frame, text="Начальный цвет:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        start_color_btn_frame = ttk.Frame(start_frame, style="Card.TFrame")
-        start_color_btn_frame.pack(fill="x", pady=8)
-
-        ttk.Button(start_color_btn_frame, text="Выбрать цвет", style="TButton",
-                   command=lambda: self.controller.choose_color("gradient_start")).pack(side="left")
-
-        self.controller.gradient_start_canvas = tk.Label(start_color_btn_frame, bg=self.controller.gradient_start,
-                                                         width=3, height=1, relief="sunken", bd=1)
-        self.controller.gradient_start_canvas.pack(side="left", padx=10)
-
-        # Конечный цвет градиента
-        end_frame = ttk.Frame(gradient_frame, style="Card.TFrame")
-        end_frame.pack(fill="x", pady=(0, 10))
-
-        tk.Label(end_frame, text="Конечный цвет:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        end_color_btn_frame = ttk.Frame(end_frame, style="Card.TFrame")
-        end_color_btn_frame.pack(fill="x", pady=8)
-
-        ttk.Button(end_color_btn_frame, text="Выбрать цвет", style="TButton",
-                   command=lambda: self.controller.choose_color("gradient_end")).pack(side="left")
-
-        self.controller.gradient_end_canvas = tk.Label(end_color_btn_frame, bg=self.controller.gradient_end,
-                                                       width=3, height=1, relief="sunken", bd=1)
-        self.controller.gradient_end_canvas.pack(side="left", padx=10)
-
-        # Направление градиента
-        dir_frame = ttk.Frame(gradient_frame, style="Card.TFrame")
-        dir_frame.pack(fill="x", pady=(0, 10))
-
-        tk.Label(dir_frame, text="Направление:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        self.gradient_dir_var = tk.StringVar(value="horizontal")
-        dir_combo = ttk.Combobox(dir_frame, textvariable=self.gradient_dir_var,
-                                 values=["horizontal", "vertical", "diagonal"],
-                                 style="TCombobox", state="readonly")
-        dir_combo.pack(fill="x", pady=8)
-        dir_combo.bind("<<ComboboxSelected>>", lambda e: self.controller.update_preview())
-
-        # Фон
-        bg_frame = ttk.Frame(scrollable_frame, style="Card.TFrame")
-        bg_frame.pack(fill="x", pady=(0, 15))
-
-        tk.Label(bg_frame, text="Фон:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        bg_btn_frame = ttk.Frame(bg_frame, style="Card.TFrame")
-        bg_btn_frame.pack(fill="x", pady=8)
-
-        ttk.Button(bg_btn_frame, text="Выбрать цвет фона", style="TButton",
-                   command=self.controller.choose_bg_color).pack(side="left")
-
-        transparent_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(bg_btn_frame, text="Прозрачный", variable=transparent_var,
-                        style="TCheckbutton", command=lambda: self.controller.update_preview()).pack(side="left",
-                                                                                                     padx=10)
-
-        # Эффекты
-        effects_frame = ttk.Frame(scrollable_frame, style="Card.TFrame")
-        effects_frame.pack(fill="x", pady=(0, 15))
-
-        tk.Label(effects_frame, text="Дополнительные эффекты:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        # Эффект тиснения
-        emboss_frame = ttk.Frame(effects_frame, style="Card.TFrame")
-        emboss_frame.pack(fill="x", pady=(0, 10))
-
-        tk.Label(emboss_frame, text="Тиснение:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        self.emboss_var = tk.IntVar(value=0)
-        emboss_scale = ttk.Scale(emboss_frame, from_=0, to=10, variable=self.emboss_var,
-                                 orient=tk.HORIZONTAL, style="Horizontal.TScale")
-        emboss_scale.pack(fill="x", pady=8)
-        emboss_scale.bind("<ButtonRelease-1>", lambda e: self.controller.update_preview())
-
-        # Эффект текстура
-        texture_frame = ttk.Frame(effects_frame, style="Card.TFrame")
-        texture_frame.pack(fill="x", pady=(0, 10))
-
-        tk.Label(texture_frame, text="Текстура:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        self.texture_var = tk.IntVar(value=0)
-        texture_scale = ttk.Scale(texture_frame, from_=0, to=10, variable=self.texture_var,
-                                  orient=tk.HORIZONTAL, style="Horizontal.TScale")
-        texture_scale.pack(fill="x", pady=8)
-        texture_scale.bind("<ButtonRelease-1>", lambda e: self.controller.update_preview())
-
-        # Искажение перспективы
-        perspective_frame = ttk.Frame(effects_frame, style="Card.TFrame")
-        perspective_frame.pack(fill="x", pady=(0, 10))
-
-        tk.Label(perspective_frame, text="Перспектива:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        self.perspective_var = tk.IntVar(value=0)
-        perspective_scale = ttk.Scale(perspective_frame, from_=0, to=10, variable=self.perspective_var,
-                                      orient=tk.HORIZONTAL, style="Horizontal.TScale")
-        perspective_scale.pack(fill="x", pady=8)
-        perspective_scale.bind("<ButtonRelease-1>", lambda e: self.controller.update_preview())
-
-        # Волновое искажение
-        wave_frame = ttk.Frame(effects_frame, style="Card.TFrame")
-        wave_frame.pack(fill="x", pady=(0, 10))
-
-        tk.Label(wave_frame, text="Волна:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        self.wave_var = tk.IntVar(value=0)
-        wave_scale = ttk.Scale(wave_frame, from_=0, to=10, variable=self.wave_var,
-                               orient=tk.HORIZONTAL, style="Horizontal.TScale")
-        wave_scale.pack(fill="x", pady=8)
-        wave_scale.bind("<ButtonRelease-1>", lambda e: self.controller.update_preview())
-
-        # Масштаб
-        zoom_frame = ttk.Frame(effects_frame, style="Card.TFrame")
-        zoom_frame.pack(fill="x", pady=(0, 10))
-
-        tk.Label(zoom_frame, text="Масштаб:", font=self.app_font,
-                 fg=self.secondary_text, bg=self.card_color).pack(anchor="w")
-
-        self.zoom_var = tk.DoubleVar(value=1.0)
-        zoom_scale = ttk.Scale(zoom_frame, from_=0.5, to=3.0, variable=self.zoom_var,
-                               orient=tk.HORIZONTAL, style="Horizontal.TScale")
-        zoom_scale.pack(fill="x", pady=8)
-        zoom_scale.bind("<ButtonRelease-1>", lambda e: self.controller.update_preview())
-
-    def create_preview(self):
-        """Создает область предпросмотра"""
-        preview_container = ttk.Frame(self.root, style="Card.TFrame", padding=20)
-        preview_container.pack(fill="both", expand=True, padx=20, pady=(0, 20))
-
-        tk.Label(preview_container, text="Предпросмотр", font=self.subtitle_font,
-                 fg=self.text_color, bg=self.card_color).pack(anchor="w", pady=(0, 15))
-
-        # Canvas для предпросмотра с прокруткой
-        preview_canvas_frame = ttk.Frame(preview_container, style="Card.TFrame")
-        preview_canvas_frame.pack(fill="both", expand=True)
-
-        # Создаем Canvas с прокруткой
-        canvas = tk.Canvas(preview_canvas_frame, bg="#252525", highlightthickness=0)
-        h_scrollbar = ttk.Scrollbar(preview_canvas_frame, orient="horizontal", command=canvas.xview)
-        v_scrollbar = ttk.Scrollbar(preview_canvas_frame, orient="vertical", command=canvas.yview)
-
-        canvas.configure(xscrollcommand=h_scrollbar.set, yscrollcommand=v_scrollbar.set)
-
-        # Размещаем элементы
-        canvas.grid(row=0, column=0, sticky="nsew")
-        v_scrollbar.grid(row=0, column=1, sticky="ns")
-        h_scrollbar.grid(row=1, column=0, sticky="ew")
-
-        preview_canvas_frame.grid_rowconfigure(0, weight=1)
-        preview_canvas_frame.grid_columnconfigure(0, weight=1)
-
-        # Привязываем колесо мыши к canvas
-        canvas.bind("<MouseWheel>", self.controller.on_mousewheel)
-
-        # Сохраняем ссылку на canvas в контроллере
-        self.controller.preview_canvas = canvas
-
-    def get_vars(self):
-        """Возвращает словарь с переменными UI"""
-        return {
-            'text_var': getattr(self, 'text_var', None),
-            'font_var': getattr(self, 'font_var', None),
-            'size_var': getattr(self, 'size_var', None),
-            'opacity_var': getattr(self, 'opacity_var', None),
-            'rotation_var': getattr(self, 'rotation_var', None),
-            'stroke_width_var': getattr(self, 'stroke_width_var', None),
-            'shadow_offset_var': getattr(self, 'shadow_offset_var', None),
-            'shadow_blur_var': getattr(self, 'shadow_blur_var', None),
-            'glow_intensity_var': getattr(self, 'glow_intensity_var', None),
-            'gradient_dir_var': getattr(self, 'gradient_dir_var', None),
-            'emboss_var': getattr(self, 'emboss_var', None),
-            'texture_var': getattr(self, 'texture_var', None),
-            'perspective_var': getattr(self, 'perspective_var', None),
-            'wave_var': getattr(self, 'wave_var', None),
-            'zoom_var': getattr(self, 'zoom_var', None)
-        }
+from tkinter import ttk, colorchooser
+from tkinter import font as tkfont
+from PIL import Image, ImageTk
+
+def setup_styles(app):
+    """Настройка современных и красивых стилей интерфейса (только тёмная тема)."""
+    app.bg = "#1a1b26"  # Фон приложения
+    app.card = "#24283b"  # Фон карточек
+    app.accent = "#7aa2f7"  # Акцентный цвет
+    app.accent_hover = "#89b4fa"  # Акцентный цвет при наведении
+    app.text = "#c0caf5"  # Цвет текста
+    app.sub = "#a9b1d6"  # Цвет подтекста
+
+    app.style.configure("TFrame", background=app.bg)
+    app.style.configure("Card.TFrame", background=app.card, relief="flat")
+    app.style.configure("TLabel", background=app.card, foreground=app.text, font=("Inter", 12))
+    app.style.configure("Title.TLabel", font=("Inter", 24, "bold"), foreground=app.accent, background=app.bg)
+    app.style.configure("Small.TLabel", font=("Inter", 10), foreground=app.sub, background=app.card)
+    app.style.configure("Accent.TButton", font=("Inter", 12, "bold"), background=app.accent, foreground="#fff",
+                        padding=8, borderwidth=0)
+    app.style.map("Accent.TButton", background=[('active', app.accent_hover), ('pressed', '#555bff')],
+                  foreground=[('active', '#fff')])
+    app.style.configure("TButton", background=app.card, foreground=app.text, font=("Inter", 12), padding=6,
+                        borderwidth=1, relief="flat")
+    app.style.map("TButton", background=[('active', '#2a2e52')],
+                  foreground=[('active', app.text)])
+    app.style.configure("TCheckbutton", background=app.card, foreground=app.text, font=("Inter", 12), padding=4)
+    app.style.map("TCheckbutton", background=[('active', app.card)], foreground=[('active', app.accent)])
+    app.style.configure("TScale", background=app.card, troughcolor="#2a2e52",
+                        sliderrelief="flat", sliderlength=20, sliderthickness=12)
+    app.style.map("TScale", background=[('active', app.card)],
+                  troughcolor=[('active', '#3a3e72')])
+    app.style.configure("TCombobox", fieldbackground="#2a2e52",
+                        background=app.card, foreground=app.text, font=("Inter", 12), arrowsize=14)
+    app.style.map("TCombobox", fieldbackground=[('readonly', '#2a2e52')],
+                  selectbackground=[('readonly', '#2a2e52')],
+                  selectforeground=[('readonly', app.text)])
+    app.style.configure("TNotebook", background=app.card, tabmargins=0)
+    app.style.configure("TNotebook.Tab", background="#2a2e52",
+                        foreground=app.text, font=("Inter", 12, "bold"), padding=(12, 8), borderwidth=0)
+    app.style.map("TNotebook.Tab",
+                  background=[('selected', app.card), ('active', '#3a3e72')],
+                  foreground=[('selected', app.accent), ('active', app.accent)])
+
+    app.button_style = {'bg': '#2a2e52', 'fg': app.text, 'font': ('Inter', 12),
+                        'activebackground': '#3a3e72',
+                        'activeforeground': app.text, 'relief': 'flat', 'bd': 0, 'highlightthickness': 0}
+    app.accent_button_style = {'bg': app.accent, 'fg': '#fff', 'font': ('Inter', 12, 'bold'),
+                               'activebackground': app.accent_hover, 'activeforeground': '#fff', 'relief': 'flat',
+                               'bd': 0, 'highlightthickness': 0}
+    app.entry_style = {'bg': '#2a2e52', 'fg': app.text,
+                       'insertbackground': app.accent, 'font': ('Inter', 12), 'relief': 'flat', 'bd': 1,
+                       'highlightthickness': 1, 'highlightcolor': app.accent}
+    app.text_style = {'bg': '#2a2e52', 'fg': app.text,
+                      'insertbackground': app.accent, 'font': ('Inter', 12), 'relief': 'flat', 'bd': 1,
+                      'highlightthickness': 1, 'highlightcolor': app.accent}
+
+def build_ui(app):
+    """Создание интерфейса с улучшенными виджетами и компактными вкладками."""
+    app.root.title("MICHAEL BYTE — Редактор текстовых эффектов")
+    app.root.configure(bg=app.bg)
+    try:
+        app.style.theme_use('clam')
+    except:
+        pass
+    setup_styles(app)
+
+    # Верхняя панель
+    topbar = ttk.Frame(app.root, style="TFrame")
+    topbar.pack(side="top", fill="x", padx=20, pady=10)
+    ttk.Label(topbar, text="MICHAEL BYTE", style="Title.TLabel").pack(side="left", padx=(10, 20))
+    tk.Button(topbar, text="Случайный стиль", command=app.randomize_style, **app.button_style).pack(side="right", padx=10)
+    tk.Button(topbar, text="Отмена", command=app.undo, **app.button_style).pack(side="right", padx=10)
+    tk.Button(topbar, text="Повтор", command=app.redo, **app.button_style).pack(side="right", padx=10)
+
+    # Основная область
+    main = ttk.Frame(app.root, style="TFrame")
+    main.pack(fill="both", expand=True, padx=20, pady=(0, 10))
+
+    # Настройки (вкладки) с уменьшенной высотой
+    settings = ttk.Frame(main, style="TFrame")
+    settings.pack(side="top", fill="x", pady=(0, 10))
+    settings.configure(height=150)  # Уменьшена высота настроек
+
+    notebook = ttk.Notebook(settings)
+    notebook.pack(fill="both", expand=False)
+
+    # Вкладки
+    text_presets_tab = ttk.Frame(notebook, style="Card.TFrame")
+    effects_advanced_tab = ttk.Frame(notebook, style="Card.TFrame")
+
+    notebook.add(text_presets_tab, text="Текст и Пресеты")
+    notebook.add(effects_advanced_tab, text="Эффекты и Продвинутые")
+
+    # Создание содержимого вкладки "Текст и Пресеты"
+    text_subframe = ttk.Frame(text_presets_tab, style="Card.TFrame", padding=12)
+    text_subframe.pack(side="top", fill="x")
+    build_text_controls(app, text_subframe)
+    presets_subframe = ttk.Frame(text_presets_tab, style="Card.TFrame", padding=12)
+    presets_subframe.pack(side="top", fill="both", expand=True)
+    build_preset_controls(app, presets_subframe)
+
+    # Создание содержимого вкладки "Эффекты и Продвинутые" с вертикальным разделением
+    paned = ttk.PanedWindow(effects_advanced_tab, orient="vertical", style="Card.TFrame")
+    paned.pack(fill="both", expand=True, padx=12, pady=12)
+
+    effects_subframe = ttk.Frame(paned, style="Card.TFrame", padding=12)
+    paned.add(effects_subframe, weight=1)
+    build_effects_controls(app, effects_subframe)
+
+    advanced_subframe = ttk.Frame(paned, style="Card.TFrame", padding=12)
+    paned.add(advanced_subframe, weight=1)
+    build_advanced_controls(app, advanced_subframe)
+
+    # Область предпросмотра (увеличена за счёт уменьшения высоты настроек)
+    preview_frame = ttk.Frame(main, style="Card.TFrame")
+    preview_frame.pack(side="bottom", fill="both", expand=True, pady=(0, 10))
+
+    preview_top = ttk.Frame(preview_frame, style="Card.TFrame")
+    preview_top.pack(fill="x", padx=15, pady=(8, 6))
+    ttk.Label(preview_top, text="Предпросмотр", style="Small.TLabel").pack(side="left")
+    ttk.Label(preview_top, textvariable=app.font_name, style="Small.TLabel").pack(side="right")
+    app.font_preview_label = ttk.Label(preview_top, style="Small.TLabel")
+    app.font_preview_label.pack(side="right", padx=5)
+
+    preview_area = ttk.Frame(preview_frame, style="Card.TFrame")
+    preview_area.pack(fill="both", expand=True, padx=15, pady=(0, 10))
+    app.preview_canvas = tk.Canvas(preview_area, bg=app.card, highlightthickness=0)
+    hbar = ttk.Scrollbar(preview_area, orient="horizontal", command=app.preview_canvas.xview)
+    vbar = ttk.Scrollbar(preview_area, orient="vertical", command=app.preview_canvas.yview)
+    app.preview_canvas.configure(xscrollcommand=hbar.set, yscrollcommand=vbar.set)
+    app.preview_canvas.grid(row=0, column=0, sticky="nsew")
+    vbar.grid(row=0, column=1, sticky="ns")
+    hbar.grid(row=1, column=0, sticky="ew")
+    preview_area.grid_rowconfigure(0, weight=1)
+    preview_area.grid_columnconfigure(0, weight=1)
+
+    # Привязка колеса мыши
+    app.preview_canvas.bind("<MouseWheel>", app._on_preview_mousewheel)
+    app.preview_canvas.bind("<Button-4>", app._on_preview_mousewheel)
+    app.preview_canvas.bind("<Button-5>", app._on_preview_mousewheel)
+
+    # Нижняя строка состояния
+    bottom = ttk.Frame(app.root, style="TFrame")
+    bottom.pack(fill="x", padx=20, pady=(0, 10))
+    app.status_var = tk.StringVar(value="Готово")
+    ttk.Label(bottom, textvariable=app.status_var, style="Small.TLabel").pack(side="left")
+
+def build_text_controls(app, parent):
+    """Создание вкладки управления текстом с улучшенными виджетами."""
+    tk.Label(parent, text="Текст:", **app.button_style).grid(row=0, column=0, sticky="w", pady=2)
+    txt = tk.Text(parent, height=5, wrap="word", **app.text_style)
+    txt.insert("1.0", app.text_content.get())
+    txt.grid(row=1, column=0, columnspan=4, sticky="nsew", pady=(5, 8))
+
+    def on_text_change(evt=None):
+        app.text_content.set(txt.get("1.0", "end").rstrip("\n"))
+        app.save_state()
+        app.update_preview_debounced()
+
+    txt.bind("<<Modified>>", lambda e: (txt.edit_modified(False), on_text_change()))
+
+    fframe = ttk.Frame(parent)
+    fframe.grid(row=2, column=0, columnspan=4, sticky="ew", pady=(6, 0))
+    ttk.Label(fframe, text="Шрифт:").pack(side="left")
+    fonts = sorted(set(tkfont.families()))
+    common = ["DejaVu Sans", "Arial", "Liberation Sans", "Times New Roman", "Verdana"]
+    fonts_sorted = [f for f in common if f in fonts] + [f for f in fonts if f not in common]
+    app.font_combo = ttk.Combobox(fframe, values=fonts_sorted, textvariable=app.font_name, state="readonly", width=22)
+    app.font_combo.pack(side="left", padx=8)
+
+    def on_font_change(e):
+        app.update_font_preview()
+        app.save_state()
+        app.update_preview_debounced()
+
+    app.font_combo.bind("<<ComboboxSelected>>", on_font_change)
+
+    ttk.Label(fframe, text="Размер:").pack(side="left", padx=(12, 0))
+    tk.Spinbox(fframe, from_=8, to=400, textvariable=app.font_size, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=8)
+
+    spacing_frame = ttk.Frame(parent)
+    spacing_frame.grid(row=3, column=0, columnspan=4, sticky="ew", pady=(6, 0))
+    ttk.Label(spacing_frame, text="Выравнивание:").pack(side="left")
+    ttk.Radiobutton(spacing_frame, text="Слева", variable=app.align, value="left",
+                    command=lambda: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=4)
+    ttk.Radiobutton(spacing_frame, text="Центр", variable=app.align, value="center",
+                    command=lambda: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=4)
+    ttk.Radiobutton(spacing_frame, text="Справа", variable=app.align, value="right",
+                    command=lambda: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=4)
+    ttk.Label(spacing_frame, text="Интервал (строки):").pack(side="left", padx=(12, 0))
+    tk.Spinbox(spacing_frame, from_=-20, to=80, textvariable=app.line_spacing, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Label(spacing_frame, text="Буквы:").pack(side="left", padx=(12, 0))
+    tk.Spinbox(spacing_frame, from_=-10, to=50, textvariable=app.letter_spacing, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    parent.columnconfigure(0, weight=1)
+
+def build_effects_controls(app, parent):
+    """Создание вкладки управления эффектами с ползунками и улучшенными виджетами."""
+    row = ttk.Frame(parent)
+    row.pack(fill="x", pady=6)
+    ttk.Label(row, text="Цвет текста:").pack(side="left")
+    tk.Button(row, text="Выбрать", command=lambda: app._choose_color(app.text_color), **app.button_style).pack(
+        side="left", padx=8)
+    ttk.Label(row, textvariable=app.text_color, style="Small.TLabel").pack(side="left", padx=8)
+
+    row2 = ttk.Frame(parent)
+    row2.pack(fill="x", pady=6)
+    ttk.Label(row2, text="Обводка:").pack(side="left")
+    tk.Button(row2, text="Цвет", command=lambda: app._choose_color(app.stroke_color), **app.button_style).pack(
+        side="left", padx=8)
+    ttk.Label(row2, textvariable=app.stroke_color, style="Small.TLabel").pack(side="left", padx=8)
+    ttk.Label(row2, text="Толщина:").pack(side="left", padx=(12, 0))
+    tk.Spinbox(row2, from_=0, to=100, textvariable=app.stroke_width, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Scale(row2, from_=0, to=100, variable=app.stroke_width,
+              command=lambda e: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=4, fill="x",
+                                                                                         expand=True)
+
+    row3 = ttk.Frame(parent)
+    row3.pack(fill="x", pady=6)
+    ttk.Label(row3, text="Прозрачность:").pack(side="left")
+    tk.Spinbox(row3, from_=0, to=100, textvariable=app.opacity, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Scale(row3, from_=0, to=100, variable=app.opacity,
+              command=lambda e: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=4, fill="x",
+                                                                                         expand=True)
+
+    glowf = ttk.Frame(parent)
+    glowf.pack(fill="x", pady=6)
+    ttk.Label(glowf, text="Свечение:").pack(side="left")
+    tk.Button(glowf, text="Цвет", command=lambda: app._choose_color(app.glow_color), **app.button_style).pack(
+        side="left", padx=8)
+    ttk.Label(glowf, textvariable=app.glow_color, style="Small.TLabel").pack(side="left", padx=8)
+    ttk.Label(glowf, text="Интенсивность:").pack(side="left", padx=(12, 0))
+    tk.Spinbox(glowf, from_=0, to=80, textvariable=app.glow_intensity, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Scale(glowf, from_=0, to=80, variable=app.glow_intensity,
+              command=lambda e: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=4, fill="x",
+                                                                                         expand=True)
+
+    igf = ttk.Frame(parent)
+    igf.pack(fill="x", pady=6)
+    ttk.Label(igf, text="Внутреннее свечение:").pack(side="left")
+    tk.Button(igf, text="Цвет", command=lambda: app._choose_color(app.inner_glow_color), **app.button_style).pack(
+        side="left", padx=8)
+    ttk.Label(igf, textvariable=app.inner_glow_color, style="Small.TLabel").pack(side="left", padx=8)
+    ttk.Label(igf, text="Интенсивность:").pack(side="left", padx=(12, 0))
+    tk.Spinbox(igf, from_=0, to=80, textvariable=app.inner_glow_intensity, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Scale(igf, from_=0, to=80, variable=app.inner_glow_intensity,
+              command=lambda e: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=4, fill="x",
+                                                                                         expand=True)
+
+    neonf = ttk.Frame(parent)
+    neonf.pack(fill="x", pady=6)
+    ttk.Label(neonf, text="Неоновое свечение:").pack(side="left")
+    tk.Button(neonf, text="Цвет", command=lambda: app._choose_color(app.neon_color), **app.button_style).pack(
+        side="left", padx=8)
+    ttk.Label(neonf, textvariable=app.neon_color, style="Small.TLabel").pack(side="left", padx=8)
+    ttk.Label(neonf, text="Интенсивность:").pack(side="left", padx=(12, 0))
+    tk.Spinbox(neonf, from_=0, to=80, textvariable=app.neon_intensity, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Scale(neonf, from_=0, to=80, variable=app.neon_intensity,
+              command=lambda e: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=4, fill="x",
+                                                                                         expand=True)
+
+    shadowf = ttk.Frame(parent)
+    shadowf.pack(fill="x", pady=6)
+    ttk.Label(shadowf, text="Тень:").pack(side="left")
+    tk.Button(shadowf, text="Цвет", command=lambda: app._choose_color(app.shadow_color), **app.button_style).pack(
+        side="left", padx=8)
+    ttk.Label(shadowf, textvariable=app.shadow_color, style="Small.TLabel").pack(side="left", padx=8)
+    ttk.Label(shadowf, text="Смещение:").pack(side="left", padx=(12, 0))
+    tk.Spinbox(shadowf, from_=0, to=200, textvariable=app.shadow_offset, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Scale(shadowf, from_=0, to=200, variable=app.shadow_offset,
+              command=lambda e: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=4, fill="x",
+                                                                                         expand=True)
+    ttk.Label(shadowf, text="Угол:").pack(side="left", padx=(12, 0))
+    tk.Spinbox(shadowf, from_=0, to=359, textvariable=app.shadow_angle, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Scale(shadowf, from_=0, to=359, variable=app.shadow_angle,
+              command=lambda e: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=4, fill="x",
+                                                                                         expand=True)
+    ttk.Label(shadowf, text="Размытие:").pack(side="left", padx=(12, 0))
+    tk.Spinbox(shadowf, from_=0, to=80, textvariable=app.shadow_blur, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Scale(shadowf, from_=0, to=80, variable=app.shadow_blur,
+              command=lambda e: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=4, fill="x",
+                                                                                         expand=True)
+
+    threedf = ttk.Frame(parent)
+    threedf.pack(fill="x", pady=6)
+    ttk.Label(threedf, text="3D эффект:").pack(side="left")
+    ttk.Label(threedf, text="Глубина:").pack(side="left", padx=(12, 0))
+    tk.Spinbox(threedf, from_=0, to=50, textvariable=app.threed_depth, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Scale(threedf, from_=0, to=50, variable=app.threed_depth,
+              command=lambda e: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=4, fill="x",
+                                                                                         expand=True)
+    ttk.Label(threedf, text="Угол:").pack(side="left", padx=(12, 0))
+    tk.Spinbox(threedf, from_=0, to=359, textvariable=app.threed_angle, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Scale(threedf, from_=0, to=359, variable=app.threed_angle,
+              command=lambda e: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=4, fill="x",
+                                                                                         expand=True)
+
+def build_advanced_controls(app, parent):
+    """Создание вкладки продвинутых настроек с улучшенными виджетами."""
+    grad = ttk.Frame(parent)
+    grad.pack(fill="x", pady=6)
+    ttk.Checkbutton(grad, text="Включить градиент", variable=app.gradient_enabled,
+                    command=lambda: (app.save_state(), app.update_preview_debounced())).pack(side="left")
+    tk.Button(grad, text="Начало", command=lambda: app._choose_color(app.gradient_start), **app.button_style).pack(
+        side="left", padx=8)
+    ttk.Label(grad, textvariable=app.gradient_start, style="Small.TLabel").pack(side="left", padx=(0, 8))
+    tk.Button(grad, text="Конец", command=lambda: app._choose_color(app.gradient_end), **app.button_style).pack(
+        side="left")
+    ttk.Label(grad, textvariable=app.gradient_end, style="Small.TLabel").pack(side="left", padx=(8, 0))
+    ttk.Label(grad, text="Направление:").pack(side="left", padx=(12, 0))
+    ttk.Combobox(grad, values=["Горизонтальное", "Вертикальное", "Диагональное"], textvariable=app.gradient_dir, state="readonly",
+                 width=15).pack(side="left", padx=4)
+
+    trow = ttk.Frame(parent)
+    trow.pack(fill="x", pady=6)
+    ttk.Label(trow, text="Текстура:").pack(side="left")
+    tk.Spinbox(trow, from_=0, to=100, textvariable=app.texture_intensity, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Scale(trow, from_=0, to=100, variable=app.texture_intensity,
+              command=lambda e: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=4, fill="x",
+                                                                                         expand=True)
+    ttk.Label(trow, text="Тиснение:").pack(side="left", padx=(12, 0))
+    tk.Spinbox(trow, from_=0, to=100, textvariable=app.emboss_intensity, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Label(trow, text="Скос:").pack(side="left", padx=(12, 0))
+    tk.Spinbox(trow, from_=0, to=100, textvariable=app.bevel_intensity, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+
+    w1 = ttk.Frame(parent)
+    w1.pack(fill="x", pady=6)
+    ttk.Label(w1, text="Волна (амплитуда):").pack(side="left")
+    tk.Spinbox(w1, from_=0, to=150, textvariable=app.wave_amplitude, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Scale(w1, from_=0, to=150, variable=app.wave_amplitude,
+              command=lambda e: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=4, fill="x",
+                                                                                         expand=True)
+    ttk.Label(w1, text="Длина волны:").pack(side="left", padx=(12, 0))
+    tk.Spinbox(w1, from_=5, to=300, textvariable=app.wave_wavelength, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+
+    w2 = ttk.Frame(parent)
+    w2.pack(fill="x", pady=6)
+    ttk.Label(w2, text="Перспектива:").pack(side="left")
+    tk.Spinbox(w2, from_=0, to=100, textvariable=app.perspective_strength, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Label(w2, text="Поворот (градусы):").pack(side="left", padx=(12, 0))
+    tk.Spinbox(w2, from_=-180, to=180, textvariable=app.rotation_angle, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+
+    refl = ttk.Frame(parent)
+    refl.pack(fill="x", pady=6)
+    ttk.Checkbutton(refl, text="Включить отражение", variable=app.reflection_enabled,
+                    command=lambda: (app.save_state(), app.update_preview_debounced())).pack(side="left")
+    ttk.Label(refl, text="Прозрачность:").pack(side="left", padx=(12, 0))
+    tk.Spinbox(refl, from_=0, to=100, textvariable=app.reflection_opacity, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Scale(refl, from_=0, to=100, variable=app.reflection_opacity,
+              command=lambda e: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=4, fill="x",
+                                                                                         expand=True)
+    ttk.Label(refl, text="Смещение:").pack(side="left", padx=(12, 0))
+    tk.Spinbox(refl, from_=0, to=100, textvariable=app.reflection_offset, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Scale(refl, from_=0, to=100, variable=app.reflection_offset,
+              command=lambda e: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=4, fill="x",
+                                                                                         expand=True)
+
+    canvasf = ttk.Frame(parent)
+    canvasf.pack(fill="x", pady=6)
+    ttk.Label(canvasf, text="Ширина холста:").pack(side="left")
+    tk.Spinbox(canvasf, from_=200, to=4000, textvariable=app.preview_width, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Label(canvasf, text="Высота:").pack(side="left", padx=(12, 0))
+    tk.Spinbox(canvasf, from_=200, to=4000, textvariable=app.preview_height, width=5,
+               command=lambda: (app.save_state(), app.update_preview_debounced()), **app.entry_style).pack(side="left",
+                                                                                                           padx=4)
+    ttk.Checkbutton(canvasf, text="Автоматический размер", variable=app.auto_size_canvas,
+                    command=lambda: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=12)
+
+    bgf = ttk.Frame(parent)
+    bgf.pack(fill="x", pady=6)
+    ttk.Label(bgf, text="Фон:").pack(side="left")
+    tk.Button(bgf, text="Цвет фона", command=lambda: app._choose_color(app.bg_color), **app.button_style).pack(
+        side="left", padx=8)
+    ttk.Label(bgf, textvariable=app.bg_color, style="Small.TLabel").pack(side="left", padx=8)
+    ttk.Checkbutton(bgf, text="Прозрачный (PNG)", variable=app.bg_transparent,
+                    command=lambda: (app.save_state(), app.update_preview_debounced())).pack(side="left", padx=12)
+
+def build_preset_controls(app, parent):
+    """Создание вкладки управления пресетами с улучшенными виджетами."""
+    tk.Button(parent, text="Сохранить пресет", command=app.save_preset, **app.accent_button_style).pack(anchor="w",
+                                                                                                       pady=6)
+    tk.Button(parent, text="Загрузить пресет", command=app.load_preset, **app.accent_button_style).pack(anchor="w",
+                                                                                                       pady=6)
+    tk.Button(parent, text="Открыть папку пресетов", command=app.open_presets_folder, **app.accent_button_style).pack(
+        anchor="w", pady=6)
+
+    # Область предпросмотра пресетов
+    app.preset_frame = ttk.Frame(parent, style="Card.TFrame")
+    app.preset_frame.pack(fill="both", expand=True, pady=10)
+    app.update_preset_previews()

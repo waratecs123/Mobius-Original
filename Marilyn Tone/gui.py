@@ -98,9 +98,8 @@ class MarilynToneApp:
         self.setup_sidebar(main_container)
         self.setup_main_area(main_container)
 
-
     def setup_sidebar(self, parent):
-        sidebar = tk.Frame(parent, bg=self.card_color, width=300)  # Увеличил ширину для полного названия
+        sidebar = tk.Frame(parent, bg=self.card_color, width=300)
         sidebar.pack(side="left", fill="y", padx=(0, 20))
         sidebar.pack_propagate(False)
 
@@ -116,7 +115,6 @@ class MarilynToneApp:
         logo_canvas.create_oval(5, 5, 45, 45, fill=self.accent_color, outline="")
         logo_canvas.create_text(25, 25, text="M", font=('Arial', 20, 'bold'), fill="#ffffff")
 
-        # Полное название приложения
         name_frame = tk.Frame(logo_frame, bg=self.card_color)
         name_frame.pack(side="left", padx=(10, 0))
 
@@ -128,14 +126,12 @@ class MarilynToneApp:
         info_frame = tk.Frame(top_sidebar, bg=self.card_color)
         info_frame.pack(fill="x", pady=(20, 0))
 
-        # Информация о выбранном голосе
         self.voice_info_label = tk.Label(
             info_frame, text="", bg=self.card_color, fg=self.secondary_text,
             font=('Arial', 9), wraplength=250, justify='left'
         )
         self.voice_info_label.pack(anchor="w", pady=(0, 15))
 
-        # Кнопка предпросмотра голоса
         preview_btn = ttk.Button(
             top_sidebar,
             text="ПРОСЛУШАТЬ ГОЛОС",
@@ -144,7 +140,6 @@ class MarilynToneApp:
         )
         preview_btn.pack(fill="x", pady=(10, 0))
 
-        # Статистика текста
         stats_frame = tk.Frame(top_sidebar, bg=self.card_color)
         stats_frame.pack(fill="x", pady=(20, 0))
 
@@ -157,7 +152,6 @@ class MarilynToneApp:
         bottom_sidebar = tk.Frame(sidebar, bg=self.card_color)
         bottom_sidebar.pack(side="bottom", fill="x", pady=30, padx=25)
 
-        # Кнопка остановки
         self.stop_btn = ttk.Button(
             bottom_sidebar,
             text="ОСТАНОВИТЬ ГОЛОС",
@@ -183,7 +177,6 @@ class MarilynToneApp:
                                       bg=self.bg_color, fg=self.text_color, font=self.title_font)
         self.section_title.pack(side="left")
 
-        # Кнопки управления в заголовке
         header_buttons = tk.Frame(header_frame, bg=self.bg_color)
         header_buttons.pack(side="right")
 
@@ -215,7 +208,6 @@ class MarilynToneApp:
         self.text_input.pack(fill="both", expand=True)
         self.text_input.bind('<KeyRelease>', self.update_text_stats)
 
-        # Прогресс бар
         self.progress_frame = tk.Frame(content_frame, bg=self.bg_color)
         self.progress_frame.pack(fill="x", pady=(0, 10))
 
@@ -223,7 +215,7 @@ class MarilynToneApp:
             self.progress_frame, mode='indeterminate', style='TProgressbar'
         )
         self.progress_bar.pack(fill="x")
-        self.progress_frame.pack_forget()  # Скрываем по умолчанию
+        self.progress_frame.pack_forget()
 
         settings_container = tk.Frame(content_frame, bg=self.card_color, padx=25, pady=20)
         settings_container.pack(fill="x", pady=(0, 15))
@@ -503,7 +495,7 @@ class MarilynToneApp:
         current_text = self.text_input.get("1.0", tk.END).strip()
         if current_text:
             self.text_history.append(current_text)
-            if len(self.text_history) > 100:  # Ограничиваем историю
+            if len(self.text_history) > 100:
                 self.text_history.pop(0)
 
     def show_processing(self, show=True):
@@ -583,20 +575,20 @@ class MarilynToneApp:
             messagebox.showwarning("Предупреждение", "Введите текст для сохранения")
             return
 
+        voice_idx = self.voice_combobox.current()
+        voice = self.voice_engine.get_voice_info(voice_idx)
+        file_ext = ".mp3" if voice['api'] in ['gtts', 'edge_tts'] else ".wav"
+
         file_path = filedialog.asksaveasfilename(
-            defaultextension=".mp3",
+            defaultextension=file_ext,
             filetypes=[
-                ("MP3 файлы", "*.mp3"),
-                ("WAV файлы", "*.wav"),
-                ("OGG файлы", "*.ogg"),
+                ("MP3 файлы", "*.mp3") if voice['api'] in ['gtts', 'edge_tts'] else ("WAV файлы", "*.wav"),
                 ("Все файлы", "*.*")
             ]
         )
 
         if file_path:
-            voice_idx = self.voice_combobox.current()
             speed = self.speed_var.get()
-
             self.show_processing(True)
             self.status_bar.config(text="Сохранение аудиофайла...")
 
@@ -616,8 +608,10 @@ class MarilynToneApp:
             messagebox.showwarning("Предупреждение", "Введите текст для сохранения")
             return
 
-        file_path = self.voice_engine.get_default_output_path()
         voice_idx = self.voice_combobox.current()
+        voice = self.voice_engine.get_voice_info(voice_idx)
+        file_ext = "mp3" if voice['api'] in ['gtts', 'edge_tts'] else "wav"
+        file_path = self.voice_engine.get_default_output_path(file_ext)
         speed = self.speed_var.get()
 
         self.show_processing(True)
@@ -631,10 +625,6 @@ class MarilynToneApp:
                 self.status_bar.config(text=f"Аудио сохранено: {os.path.basename(file_path)}")
 
         self.voice_engine.text_to_speech(text, voice_idx, speed, file_path, callback)
-
-    def quick_export(self):
-        """Быстрый экспорт"""
-        self.quick_save()
 
     def change_output_folder(self):
         """Изменяет папку для сохранения по умолчанию"""
@@ -663,7 +653,7 @@ class MarilynToneApp:
             "Разработчик: Marilyn Team\n\n"
             "Возможности:\n"
             "• Синтез речи на разных языках\n"
-            "• Сохранение в MP3, WAV, OGG\n"
+            "• Сохранение в MP3 (gTTS, Edge TTS) и WAV (pyttsx3)\n"
             "• Настройка скорости и голосов\n"
             "• История текста и отмена действий\n\n"
             "© 2024 Marilyn Tone. Все права защищены."
@@ -675,14 +665,12 @@ class MarilynToneApp:
         """Показывает справку"""
         help_text = (
             "📖 Руководство пользователя Marilyn Tone\n\n"
-
             "🔹 Основные функции:\n"
             "• Введите текст в поле ввода\n"
             "• Выберите голос из списка\n"
             "• Настройте скорость речи\n"
             "• Нажмите 'Озвучить' для воспроизведения\n"
             "• Используйте 'Сохранить аудио' для экспорта\n\n"
-
             "🔹 Горячие клавиши:\n"
             "Ctrl+N - Новый файл\n"
             "Ctrl+O - Открыть файл\n"
@@ -691,7 +679,6 @@ class MarilynToneApp:
             "Ctrl+Y - Повторить\n"
             "Ctrl+A - Выделить все\n"
             "Ctrl+Q - Выход\n\n"
-
             "🔹 Советы:\n"
             "• Используйте правую кнопку мыши для контекстного меню\n"
             "• Прослушайте образец голоса перед озвучкой\n"
@@ -716,7 +703,6 @@ class MarilynToneApp:
     def check_updates(self):
         """Проверяет обновления"""
         self.status_bar.config(text="Проверка обновлений...")
-        # Здесь может быть логика проверки обновлений
         self.root.after(2000, lambda: self.status_bar.config(
             text="Обновления не найдены. У вас последняя версия.", fg=self.success_color))
 
