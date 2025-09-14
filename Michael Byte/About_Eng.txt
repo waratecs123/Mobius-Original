@@ -1,0 +1,20 @@
+Michael Byte is a powerful desktop tool within the Mobius ecosystem, designed for
+professional and convenient work with text layers on images. Unlike
+mobile counterparts, it offers the full control of a PC: precise positioning
+with a mouse, hotkey support, and high-resolution project handling.
+You can easily import images in JPG, PNG, or PSD formats and gain full control
+over adding, editing, and styling any captions, making it an ideal
+solution for creating memes, social media posts, watermarks, or design elements.
+
+The tool is deeply integrated into the Mobius ecosystem, which is its key
+advantage. Finished works can be exported to other system applications with one click.
+Thanks to the unified Mobius Cloud storage, all your fonts and projects are synchronized
+between devices, allowing you to start work on one device and finish on another.
+
+Michael Byte goes beyond basic text addition, offering an extended set of features
+for fine typography. This includes advanced layer management, a wide selection of fonts
+with support for fill, stroke, shadows, and leading, as well as text warp tools
+and transparency control. Created specifically for creators within the comprehensive ecosystem,
+it bridges the gap between simple mobile editors and complex graphics packages,
+offering the perfect balance of simplicity and functionality for fast and high-quality
+visual content design.

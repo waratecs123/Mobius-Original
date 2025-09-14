@@ -1,0 +1,23 @@
+Tarantino Catch is your digital director, instantly capturing the
+creative process right from the screen. The tool allows you to simultaneously
+record video from a webcam to capture your emotions and reactions,
+and the window of any application on the computer – be it a sequencer,
+graphics editor, or game engine. All this is combined into one
+synchronized video stream, creating dynamic and lively content,
+perfect for creating lessons, demonstrations, and vlogs without
+the need for complex editing.
+
+The flexibility of recording settings makes the process intuitive and powerful.
+You can easily select the desired program window or screen area,
+as well as turn the camera recording on or off with one click. Before starting,
+you can set the resolution, frame rate, and sound sources – system
+audio stream and your voice from the microphone – the balance between which is adjusted
+with simple sliders. This simplicity allows you not to be distracted by technical
+details and fully focus on creativity.
+
+Integration with the Mobius ecosystem turns Tarantino Catch into a starting point
+for any project. The finished video material instantly becomes an asset within
+the platform: it can be immediately dragged into the Mobius editor for further editing,
+applying effects, color correction, or synchronization with music. This creates
+a seamless workflow – from idea and primary recording to final render,
+making the creation of professional content incredibly fast and exciting.

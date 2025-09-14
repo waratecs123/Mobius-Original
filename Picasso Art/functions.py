@@ -1,4 +1,3 @@
-# [file name]: functions.py
 import math
 import collections
 import numpy as np
@@ -7,6 +6,8 @@ from tkinter import messagebox
 import random
 import json
 import os
+import base64
+from io import BytesIO
 
 
 class Layer:
@@ -65,6 +66,10 @@ class Layer:
             return self.blend_soft_light(base, top)
         elif self.blend_mode == "hard_light":
             return ImageChops.hard_light(base, top)
+        elif self.blend_mode == "difference":
+            return ImageChops.difference(base, top)
+        elif self.blend_mode == "exclusion":
+            return self.blend_exclusion(base, top)
         return top
 
     def blend_color_dodge(self, base, top):
@@ -99,12 +104,21 @@ class Layer:
         result_arr = np.clip(result_arr * 255, 0, 255)
         return Image.fromarray(result_arr.astype('uint8'), 'RGB').convert("RGBA")
 
+    def blend_exclusion(self, base, top):
+        """Режим наложения Exclusion"""
+        base_arr = np.array(base.convert("RGB")).astype(float) / 255
+        top_arr = np.array(top.convert("RGB")).astype(float) / 255
+
+        result_arr = base_arr + top_arr - 2 * base_arr * top_arr
+        result_arr = np.clip(result_arr * 255, 0, 255)
+        return Image.fromarray(result_arr.astype('uint8'), 'RGB').convert("RGBA")
+
 
 class Selection:
     def __init__(self, width, height):
         self.mask = Image.new("L", (width, height), 0)
         self.active = False
-        self.mode = "rectangle"  # rectangle, ellipse, lasso, magic_wand
+        self.mode = "rectangle"
         self.points = []
 
 
@@ -151,11 +165,14 @@ class PaintFunctions:
 
         # Создание composite изображения
         self.composite_image = Image.new("RGB", (self.canvas_width, self.canvas_height), self.bg_color)
+        self.composite_rgba = Image.new("RGBA", (self.canvas_width, self.canvas_height), (0, 0, 0, 0))
+        self.preview_image = None
         self.tk_image = None
 
         # Градиенты
         self.gradient_type = "linear"
         self.gradient_colors = ["#ff0000", "#0000ff"]
+        self.gradient_direction = "horizontal"
 
         # Шаблоны кистей
         self.brush_presets = [
@@ -166,7 +183,6 @@ class PaintFunctions:
         ]
 
     def create_new_layer(self, name, bg_color="transparent"):
-        """Создает новый слой"""
         layer = Layer(name, self.canvas_width, self.canvas_height, bg_color)
         self.layers.append(layer)
         self.current_layer_index = len(self.layers) - 1
@@ -174,7 +190,6 @@ class PaintFunctions:
         return layer
 
     def duplicate_layer(self, index):
-        """Дублирует слой"""
         if 0 <= index < len(self.layers):
             original = self.layers[index]
             new_layer = Layer(f"{original.name} копия", self.canvas_width, self.canvas_height)
@@ -189,15 +204,21 @@ class PaintFunctions:
             self.update_composite_image()
 
     def delete_layer(self, index):
-        """Удаляет слой"""
         if 0 <= index < len(self.layers) and len(self.layers) > 1:
             del self.layers[index]
             if self.current_layer_index >= len(self.layers):
                 self.current_layer_index = len(self.layers) - 1
             self.update_composite_image()
 
+    def reorder_layer(self, index, new_index):
+        """Перемещает слой на новую позицию"""
+        if 0 <= index < len(self.layers) and 0 <= new_index < len(self.layers):
+            layer = self.layers.pop(index)
+            self.layers.insert(new_index, layer)
+            self.current_layer_index = new_index
+            self.update_composite_image()
+
     def merge_layers(self, indices):
-        """Объединяет слои"""
         if len(indices) < 2:
             return
 
@@ -220,53 +241,65 @@ class PaintFunctions:
         self.update_composite_image()
 
     def toggle_layer_visibility(self, index):
-        """Переключает видимость слоя"""
         if 0 <= index < len(self.layers):
             self.layers[index].visible = not self.layers[index].visible
             self.update_composite_image()
 
     def set_layer_opacity(self, index, opacity):
-        """Устанавливает прозрачность слоя"""
         if 0 <= index < len(self.layers):
             self.layers[index].opacity = max(0, min(100, opacity))
             self.update_composite_image()
 
     def set_layer_blend_mode(self, index, blend_mode):
-        """Устанавливает режим наложения слоя"""
         if 0 <= index < len(self.layers):
             self.layers[index].blend_mode = blend_mode
             self.update_composite_image()
 
-    def update_composite_image(self):
-        """Обновляет composite изображение из всех видимых слоев"""
+    def get_display_image(self, temp_layer_image=None):
         composite = Image.new("RGBA", (self.canvas_width, self.canvas_height), (0, 0, 0, 0))
 
-        for layer in self.layers:
+        for i, layer in enumerate(self.layers):
             if layer.visible and layer.opacity > 0:
-                layer_img = layer.get_image_with_opacity()
+                if temp_layer_image is not None and i == self.current_layer_index:
+                    layer_img = temp_layer_image.convert("RGBA")
+                    alpha = layer_img.split()[3].point(lambda p: int(p * layer.opacity / 100))
+                    layer_img.putalpha(alpha)
+                else:
+                    layer_img = layer.get_image_with_opacity()
                 if layer.blend_mode != "normal":
-                    # Применяем режим наложения
                     temp_composite = composite.copy()
                     composite = layer.apply_blend_mode(temp_composite, layer_img)
                 else:
                     composite = Image.alpha_composite(composite, layer_img)
 
-        self.composite_image = composite.convert("RGB")
+        display_base = Image.new("RGB", (self.canvas_width, self.canvas_height), self.bg_color)
+        display_base.paste(composite, (0, 0), composite)
+        return display_base
+
+    def update_composite_image(self):
+        self.composite_image = self.get_display_image()
+        composite = Image.new("RGBA", (self.canvas_width, self.canvas_height), (0, 0, 0, 0))
+        for layer in self.layers:
+            if layer.visible and layer.opacity > 0:
+                layer_img = layer.get_image_with_opacity()
+                if layer.blend_mode != "normal":
+                    temp_composite = composite.copy()
+                    composite = layer.apply_blend_mode(temp_composite, layer_img)
+                else:
+                    composite = Image.alpha_composite(composite, layer_img)
+        self.composite_rgba = composite
 
     def get_current_layer(self):
-        """Возвращает текущий активный слой"""
         if self.layers and 0 <= self.current_layer_index < len(self.layers):
             return self.layers[self.current_layer_index]
         return None
 
     def convert_canvas_coords(self, x, y):
-        """Преобразует координаты холста с учетом масштаба и смещения"""
         canvas_x = (x - self.canvas_offset_x) / self.scale_factor
         canvas_y = (y - self.canvas_offset_y) / self.scale_factor
         return max(0, min(self.canvas_width - 1, int(canvas_x))), max(0, min(self.canvas_height - 1, int(canvas_y)))
 
     def get_color_with_alpha(self, base_color):
-        """Возвращает цвет с учетом прозрачности"""
         try:
             if isinstance(base_color, str):
                 rgb = ImageColor.getrgb(base_color)
@@ -277,7 +310,6 @@ class PaintFunctions:
             return (0, 0, 0, self.alpha)
 
     def create_brush_texture(self, size, hardness=100):
-        """Создает текстуру кисти"""
         brush = Image.new("L", (size * 2, size * 2), 0)
         draw = ImageDraw.Draw(brush)
 
@@ -294,8 +326,7 @@ class PaintFunctions:
                     if distance <= radius * hardness_factor:
                         alpha = 255
                     elif distance <= radius:
-                        alpha = int(
-                            255 * (1 - (distance - radius * hardness_factor) / (radius * (1 - hardness_factor))))
+                        alpha = int(255 * (1 - (distance - radius * hardness_factor) / (radius * (1 - hardness_factor))))
                     else:
                         alpha = 0
                     brush.putpixel((x, y), alpha)
@@ -303,7 +334,6 @@ class PaintFunctions:
         return brush
 
     def start_drawing(self, x, y):
-        """Начинает рисование"""
         layer = self.get_current_layer()
         if not layer or layer.locked:
             return False
@@ -313,12 +343,11 @@ class PaintFunctions:
         return True
 
     def draw_preview(self, x, y):
-        """Рисует предпросмотр"""
         if self.temp_draw is None:
             return
 
         if self.current_tool == "ластик":
-            color = (0, 0, 0, 0)  # Прозрачный цвет для ластика
+            color = (0, 0, 0, 0)
         else:
             color = self.get_color_with_alpha(self.draw_color)
 
@@ -327,13 +356,11 @@ class PaintFunctions:
         if self.brush_shape == "квадрат":
             self.temp_draw.rectangle([x - brush_size, y - brush_size, x + brush_size, y + brush_size], fill=color)
         elif self.brush_shape == "диагональ":
-            self.temp_draw.line([x - brush_size, y + brush_size, x + brush_size, y - brush_size], fill=color,
-                                width=brush_size * 2)
-        else:  # круг
+            self.temp_draw.line([x - brush_size, y + brush_size, x + brush_size, y - brush_size], fill=color, width=brush_size * 2)
+        else:
             self.temp_draw.ellipse([x - brush_size, y - brush_size, x + brush_size, y + brush_size], fill=color)
 
     def apply_drawing(self):
-        """Применяет рисование к слою"""
         if self.temp_image and self.temp_draw:
             layer = self.get_current_layer()
             if layer and not layer.locked:
@@ -345,26 +372,17 @@ class PaintFunctions:
         self.temp_draw = None
 
     def draw_on_image(self, last_x, last_y, x, y):
-        """Рисует на текущем слое"""
         layer = self.get_current_layer()
         if not layer or layer.locked:
             return
 
         brush_size = max(1, self.line_width)
 
-        # Разница между карандашом и кистью
         if self.current_tool == "карандаш":
-            # Карандаш - твердые края
-            if self.current_tool == "ластик":
-                # Для ластика используем прозрачный цвет
-                color = (0, 0, 0, 0)
-            else:
-                color = self.get_color_with_alpha(self.draw_color)
+            color = self.get_color_with_alpha(self.draw_color)
             layer.draw.line([last_x, last_y, x, y], fill=color, width=brush_size)
         else:
-            # Кисть - с текстурой
             if self.current_tool == "ластик":
-                # Для ластика используем прозрачный цвет
                 color = (0, 0, 0, 0)
             else:
                 color = self.get_color_with_alpha(self.draw_color)
@@ -378,19 +396,16 @@ class PaintFunctions:
                 cy = last_y + t * (y - last_y)
 
                 if self.brush_shape == "квадрат":
-                    layer.draw.rectangle([cx - brush_size, cy - brush_size, cx + brush_size, cy + brush_size],
-                                         fill=color)
+                    layer.draw.rectangle([cx - brush_size, cy - brush_size, cx + brush_size, cy + brush_size], fill=color)
                 elif self.brush_shape == "диагональ":
-                    layer.draw.line([cx - brush_size, cy + brush_size, cx + brush_size, cy - brush_size], fill=color,
-                                    width=brush_size * 2)
-                else:  # круг
+                    layer.draw.line([cx - brush_size, cy + brush_size, cx + brush_size, cy - brush_size], fill=color, width=brush_size * 2)
+                else:
                     layer.draw.ellipse([cx - brush_size, cy - brush_size, cx + brush_size, cy + brush_size], fill=color)
 
         layer.update_thumbnail()
         self.update_composite_image()
 
     def draw_shape_preview(self, start_x, start_y, end_x, end_y):
-        """Рисует предпросмотр фигуры"""
         if self.temp_draw is None:
             return
 
@@ -415,7 +430,6 @@ class PaintFunctions:
                 self.temp_draw.polygon(self.selection.points, fill=color)
 
     def draw_shape_final(self, start_x, start_y, end_x, end_y):
-        """Рисует фигуру на слое"""
         layer = self.get_current_layer()
         if not layer or layer.locked:
             return
@@ -443,40 +457,38 @@ class PaintFunctions:
         self.update_composite_image()
 
     def flood_fill(self, x, y):
-        """Заливка области на текущем слое"""
         layer = self.get_current_layer()
         if not layer or layer.locked:
             return
 
         target_color = layer.image.getpixel((x, y))
-        fill_color = self.get_color_with_alpha(self.draw_color)
+        replacement_color = self.get_color_with_alpha(self.draw_color)
 
-        if target_color == fill_color:
+        if target_color == replacement_color:
             return
 
-        queue = collections.deque([(x, y)])
-        visited = set([(x, y)])
+        pixels = collections.deque([(x, y)])
+        visited = set()
 
-        while queue:
-            cx, cy = queue.popleft()
+        while pixels:
+            px, py = pixels.popleft()
+            if (px, py) in visited or not (0 <= px < self.canvas_width and 0 <= py < self.canvas_height):
+                continue
+            if layer.image.getpixel((px, py)) != target_color:
+                continue
 
-            if 0 <= cx < self.canvas_width and 0 <= cy < self.canvas_height:
-                current_color = layer.image.getpixel((cx, cy))
-                if current_color == target_color:
-                    layer.image.putpixel((cx, cy), fill_color)
+            layer.image.putpixel((px, py), replacement_color)
+            visited.add((px, py))
 
-                    for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-                        nx, ny = cx + dx, cy + dy
-                        if (nx, ny) not in visited:
-                            visited.add((nx, ny))
-                            queue.append((nx, ny))
+            pixels.append((px + 1, py))
+            pixels.append((px - 1, py))
+            pixels.append((px, py + 1))
+            pixels.append((px, py - 1))
 
-        layer.draw = ImageDraw.Draw(layer.image)
         layer.update_thumbnail()
         self.update_composite_image()
 
     def add_text_to_image(self, x, y, text, font_size=20, font_name="arial.ttf"):
-        """Добавляет текст на текущий слой"""
         layer = self.get_current_layer()
         if not layer or layer.locked:
             return
@@ -485,7 +497,6 @@ class PaintFunctions:
             try:
                 font = ImageFont.truetype(font_name, font_size)
             except:
-                # Попробуем найти стандартный шрифт
                 try:
                     font = ImageFont.truetype("Arial.ttf", font_size)
                 except:
@@ -504,7 +515,6 @@ class PaintFunctions:
         self.update_composite_image()
 
     def apply_filter(self, filter_type, strength=1.0):
-        """Применяет фильтр к текущему слою"""
         layer = self.get_current_layer()
         if not layer or layer.locked:
             return
@@ -536,7 +546,6 @@ class PaintFunctions:
         self.update_composite_image()
 
     def transform_layer(self, transform_type, **kwargs):
-        """Трансформирует текущий слой"""
         layer = self.get_current_layer()
         if not layer or layer.locked:
             return
@@ -565,12 +574,10 @@ class PaintFunctions:
         self.update_composite_image()
 
     def create_selection(self, mode, points):
-        """Создает выделение"""
         self.selection.mode = mode
         self.selection.points = points
         self.selection.active = True
 
-        # Создаем маску выделения
         mask = Image.new("L", (self.canvas_width, self.canvas_height), 0)
         draw = ImageDraw.Draw(mask)
 
@@ -580,35 +587,35 @@ class PaintFunctions:
             draw.ellipse(points, fill=255)
         elif mode == "lasso" and len(points) > 2:
             draw.polygon(points, fill=255)
+        elif mode == "polygon" and len(points) > 2:
+            draw.polygon(points, fill=255)
         elif mode == "magic_wand" and len(points) == 1:
-            # Простая реализация волшебной палочки
             x, y = points[0]
             layer = self.get_current_layer()
             if layer:
                 target_color = layer.image.getpixel((x, y))
-                for py in range(max(0, y - 10), min(self.canvas_height, y + 10)):
-                    for px in range(max(0, x - 10), min(self.canvas_width, x + 10)):
-                        if layer.image.getpixel((px, py)) == target_color:
+                tolerance = 10
+                for py in range(self.canvas_height):
+                    for px in range(self.canvas_width):
+                        pixel = layer.image.getpixel((px, py))
+                        if all(abs(pixel[i] - target_color[i]) <= tolerance for i in range(4)):
                             mask.putpixel((px, py), 255)
 
         self.selection.mask = mask
         self.has_selection = True
 
     def clear_selection(self):
-        """Очищает выделение"""
         self.selection.active = False
         self.has_selection = False
         self.selection.mask = Image.new("L", (self.canvas_width, self.canvas_height), 0)
         self.selection.points = []
 
     def apply_selection_mask(self):
-        """Применяет маску выделения к текущему слою"""
         if not self.has_selection:
             return
 
         layer = self.get_current_layer()
         if layer and not layer.locked:
-            # Применяем маску к альфа-каналу
             alpha = layer.image.split()[3]
             alpha = ImageChops.multiply(alpha, self.selection.mask)
             layer.image.putalpha(alpha)
@@ -619,44 +626,56 @@ class PaintFunctions:
         self.clear_selection()
 
     def invert_selection(self):
-        """Инвертирует выделение"""
         if self.has_selection:
             self.selection.mask = ImageOps.invert(self.selection.mask)
 
-    def create_gradient(self, start_color, end_color, direction="horizontal"):
-        """Создает градиентную заливку"""
+    def create_gradient(self, start_x, start_y, end_x, end_y):
         layer = self.get_current_layer()
         if not layer or layer.locked:
             return
 
-        start_rgb = ImageColor.getrgb(start_color)
-        end_rgb = ImageColor.getrgb(end_color)
+        start_rgb = ImageColor.getrgb(self.gradient_colors[0])
+        end_rgb = ImageColor.getrgb(self.gradient_colors[1])
 
-        gradient = Image.new("RGB", (self.canvas_width, self.canvas_height), start_color)
+        gradient = Image.new("RGBA", (self.canvas_width, self.canvas_height), (0, 0, 0, 0))
         draw = ImageDraw.Draw(gradient)
 
-        if direction == "horizontal":
-            for x in range(self.canvas_width):
-                ratio = x / self.canvas_width
-                r = int(start_rgb[0] + (end_rgb[0] - start_rgb[0]) * ratio)
-                g = int(start_rgb[1] + (end_rgb[1] - start_rgb[1]) * ratio)
-                b = int(start_rgb[2] + (end_rgb[2] - start_rgb[2]) * ratio)
-                draw.line([(x, 0), (x, self.canvas_height)], fill=(r, g, b))
-        else:  # vertical
+        if self.gradient_type == "linear":
+            if self.gradient_direction == "horizontal":
+                for x in range(self.canvas_width):
+                    ratio = x / self.canvas_width
+                    r = int(start_rgb[0] + (end_rgb[0] - start_rgb[0]) * ratio)
+                    g = int(start_rgb[1] + (end_rgb[1] - start_rgb[1]) * ratio)
+                    b = int(start_rgb[2] + (end_rgb[2] - start_rgb[2]) * ratio)
+                    a = int(self.alpha * (1 - ratio))
+                    draw.line([(x, 0), (x, self.canvas_height)], fill=(r, g, b, a))
+            else:
+                for y in range(self.canvas_height):
+                    ratio = y / self.canvas_height
+                    r = int(start_rgb[0] + (end_rgb[0] - start_rgb[0]) * ratio)
+                    g = int(start_rgb[1] + (end_rgb[1] - start_rgb[1]) * ratio)
+                    b = int(start_rgb[2] + (end_rgb[2] - start_rgb[2]) * ratio)
+                    a = int(self.alpha * (1 - ratio))
+                    draw.line([(0, y), (self.canvas_width, y)], fill=(r, g, b, a))
+        elif self.gradient_type == "radial":
+            center_x, center_y = (start_x + end_x) / 2, (start_y + end_y) / 2
+            radius = max(abs(end_x - start_x), abs(end_y - start_y)) / 2
             for y in range(self.canvas_height):
-                ratio = y / self.canvas_height
-                r = int(start_rgb[0] + (end_rgb[0] - start_rgb[0]) * ratio)
-                g = int(start_rgb[1] + (end_rgb[1] - start_rgb[1]) * ratio)
-                b = int(start_rgb[2] + (end_rgb[2] - start_rgb[2]) * ratio)
-                draw.line([(0, y), (self.canvas_width, y)], fill=(r, g, b))
+                for x in range(self.canvas_width):
+                    distance = math.sqrt((x - center_x) ** 2 + (y - center_y) ** 2)
+                    ratio = min(distance / radius, 1.0)
+                    r = int(start_rgb[0] + (end_rgb[0] - start_rgb[0]) * ratio)
+                    g = int(start_rgb[1] + (end_rgb[1] - start_rgb[1]) * ratio)
+                    b = int(start_rgb[2] + (end_rgb[2] - start_rgb[2]) * ratio)
+                    a = int(self.alpha * (1 - ratio))
+                    gradient.putpixel((x, y), (r, g, b, a))
 
-        layer.image = gradient.convert("RGBA")
+        layer.image = Image.alpha_composite(layer.image, gradient)
         layer.draw = ImageDraw.Draw(layer.image)
         layer.update_thumbnail()
         self.update_composite_image()
 
     def save_state(self):
-        """Сохраняет текущее состояние всех слоев для отмены"""
         layer_states = []
         for layer in self.layers:
             layer_states.append({
@@ -678,7 +697,6 @@ class PaintFunctions:
             self.history.pop(0)
 
     def undo(self):
-        """Отменяет последнее действие"""
         if self.history:
             current_states = []
             for layer in self.layers:
@@ -723,7 +741,6 @@ class PaintFunctions:
         return False
 
     def redo(self):
-        """Повторяет отмененное действие"""
         if self.redo_stack:
             current_states = []
             for layer in self.layers:
@@ -768,7 +785,6 @@ class PaintFunctions:
         return False
 
     def new_image(self, width=None, height=None, bg_color=None):
-        """Создает новое изображение"""
         if width:
             self.canvas_width = width
         if height:
@@ -785,7 +801,6 @@ class PaintFunctions:
         self.update_composite_image()
 
     def clear_canvas(self):
-        """Очищает текущий слой"""
         layer = self.get_current_layer()
         if layer and not layer.locked:
             layer.image = Image.new("RGBA", (self.canvas_width, self.canvas_height), (0, 0, 0, 0))
@@ -794,26 +809,41 @@ class PaintFunctions:
             self.update_composite_image()
 
     def save_image(self, file_path, format=None):
-        """Сохраняет composite изображение"""
-        if format:
-            self.composite_image.save(file_path, format=format)
+        if format is None:
+            _, ext = os.path.splitext(file_path)
+            ext = ext.lower().lstrip('.')
+            if ext in ['jpg', 'jpeg']:
+                format = 'JPEG'
+            elif ext == 'png':
+                format = 'PNG'
+            elif ext == 'bmp':
+                format = 'BMP'
+            elif ext == 'gif':
+                format = 'GIF'
+            elif ext == 'tiff':
+                format = 'TIFF'
+            else:
+                format = 'PNG'
+
+        if format.upper() in ['PNG', 'TIFF']:
+            self.composite_rgba.save(file_path, format=format)
         else:
-            self.composite_image.save(file_path)
+            self.composite_image.save(file_path, format=format)
 
     def save_project(self, file_path):
-        """Сохраняет проект со всеми слоями"""
         project_data = {
             'canvas_width': self.canvas_width,
             'canvas_height': self.canvas_height,
             'bg_color': self.bg_color,
             'layers': [],
-            'current_layer_index': self.current_layer_index
+            'current_layer_index': self.current_layer_index,
+            'brush_presets': self.brush_presets
         }
 
         for layer in self.layers:
-            # Сохраняем изображение слоя во временный файл
-            layer_path = f"temp_layer_{id(layer)}.png"
-            layer.image.save(layer_path, "PNG")
+            buffer = BytesIO()
+            layer.image.save(buffer, "PNG")
+            image_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
 
             project_data['layers'].append({
                 'name': layer.name,
@@ -821,21 +851,13 @@ class PaintFunctions:
                 'opacity': layer.opacity,
                 'blend_mode': layer.blend_mode,
                 'locked': layer.locked,
-                'image_path': layer_path
+                'image_data': image_data
             })
 
         with open(file_path, 'w') as f:
             json.dump(project_data, f)
 
-        # Удаляем временные файлы
-        for layer_data in project_data['layers']:
-            try:
-                os.remove(layer_data['image_path'])
-            except:
-                pass
-
     def load_project(self, file_path):
-        """Загружает проект со всеми слоями"""
         try:
             with open(file_path, 'r') as f:
                 project_data = json.load(f)
@@ -843,12 +865,14 @@ class PaintFunctions:
             self.canvas_width = project_data['canvas_width']
             self.canvas_height = project_data['canvas_height']
             self.bg_color = project_data['bg_color']
+            self.brush_presets = project_data.get('brush_presets', self.brush_presets)
 
             self.layers = []
             for layer_data in project_data['layers']:
-                try:
-                    image = Image.open(layer_data['image_path']).convert("RGBA")
-                except:
+                if 'image_data' in layer_data:
+                    buffer = BytesIO(base64.b64decode(layer_data['image_data']))
+                    image = Image.open(buffer).convert("RGBA")
+                else:
                     image = Image.new("RGBA", (self.canvas_width, self.canvas_height), (0, 0, 0, 0))
 
                 layer = Layer(layer_data['name'], self.canvas_width, self.canvas_height)
@@ -871,4 +895,54 @@ class PaintFunctions:
             return True
         except Exception as e:
             print(f"Ошибка загрузки проекта: {e}")
+            return False
+
+    def save_brush_preset(self, name):
+        preset = {
+            "name": name,
+            "size": self.line_width,
+            "hardness": self.brush_hardness,
+            "shape": self.brush_shape
+        }
+        self.brush_presets.append(preset)
+
+    def load_brush_preset(self, preset):
+        self.line_width = preset["size"]
+        self.brush_hardness = preset["hardness"]
+        self.brush_shape = preset["shape"]
+
+    def get_photo_image(self):
+        scaled_width = int(self.canvas_width * self.scale_factor)
+        scaled_height = int(self.canvas_height * self.scale_factor)
+        if self.preview_image is not None:
+            scaled = self.preview_image.resize((scaled_width, scaled_height), Image.LANCZOS)
+        else:
+            scaled = self.composite_image.resize((scaled_width, scaled_height), Image.LANCZOS)
+        return ImageTk.PhotoImage(scaled)
+
+    def get_temp_photo_image(self):
+        if self.temp_image:
+            composite = Image.alpha_composite(self.composite_rgba, self.temp_image)
+            display_base = Image.new("RGB", (self.canvas_width, self.canvas_height), self.bg_color)
+            display_base.paste(composite, (0, 0), composite)
+            scaled_width = int(self.canvas_width * self.scale_factor)
+            scaled_height = int(self.canvas_height * self.scale_factor)
+            scaled = display_base.resize((scaled_width, scaled_height), Image.LANCZOS)
+            return ImageTk.PhotoImage(scaled)
+        return self.get_photo_image()
+
+    def open_image(self, file_path):
+        try:
+            image = Image.open(file_path).convert("RGBA")
+            self.canvas_width = image.width
+            self.canvas_height = image.height
+            self.layers = []
+            layer = self.create_new_layer("Фон")
+            layer.image = image
+            layer.draw = ImageDraw.Draw(layer.image)
+            layer.update_thumbnail()
+            self.update_composite_image()
+            return True
+        except Exception as e:
+            print(f"Ошибка загрузки изображения: {e}")
             return False

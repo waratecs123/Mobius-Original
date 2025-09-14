@@ -1,0 +1,18 @@
+Newton Flow is an interactive mini-type pad for PC that turns an ordinary
+touchpad (or even a laptop's touch panel) into a compact MIDI controller
+for creating beats, samples, and electronic music. Inspired by
+tools like the AKAI MPC or Novation's Launchpad, it allows you to play
+drums, launch loops, and record patterns right under your fingers – without
+buying additional equipment.
+
+The application emulates a grid of pads (4x4, 8x8, or a customizable option) with
+tactile feedback (vibration response) and visual highlighting of presses. You
+can load your own samples, adjust touch sensitivity,
+or use the built-in library of presets (kick drums, hi-hats,
+synth basses). Newton Flow BeatPad supports MIDI output, integration
+with DAWs (FL Studio, Ableton Live), and even a function for recording live jams in WAV/MP3.
+
+The free version includes basic functions, and a paid upgrade unlocks
+multi-touch mode, advanced sampling, and AI beat generation. It's the ideal
+tool for beatmakers on the go – you can tap out beats even on a bus,
+using just your laptop's touchpad!

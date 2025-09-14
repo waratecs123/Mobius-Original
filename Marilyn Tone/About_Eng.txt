@@ -1,0 +1,21 @@
+Marilyn Tone is an innovative PC application that
+converts text into expressive speech and vice versa (speech to text)
+with support for voices of different characters. Unlike standard
+speech synthesizers, here you can choose not just voices, but
+entire personas – from a strict professor to a perky
+animated character, including famous vocal manners
+(e.g., a languid whisper, dramatic declamation, or energetic
+advertising delivery).
+
+The program uses neural network technologies for the most
+natural sound: you can adjust the emotional coloring
+(joy, sarcasm, sadness), pace, timbre, and even the "age" of the voice.
+The reverse function – converting speech to text – supports dialects,
+homonyms, and work in a noisy environment.
+
+Marilyn Tone operates on a subscription basis with a free trial period.
+It integrates with players, presentation programs, and even
+game engines, allowing you to voice content without studio recording.
+For bloggers, voice-over actors, and educational content creators
+– it's a multi-tool for working with voice, replacing a whole set of
+professional tools.

@@ -1,0 +1,25 @@
+Gagarin Bridge is a universal file converter for PC,
+which allows you to quickly and easily convert media files,
+documents, images, and archives between hundreds of formats.
+The program supports all popular data types – from video
+(MP4, AVI, MKV) and audio (MP3, FLAC, WAV) to PDF, DOCX, JPG,
+PNG, and even specialized formats like PSD or CAD.
+Gagarin Bridge is distinguished by high processing speed thanks to
+multithreaded technologies and hardware acceleration, making it
+an excellent alternative to online converters and bulky
+professional solutions.
+
+The application offers not only basic conversion but also
+advanced settings – lossless compression, video resolution change,
+audio track extraction, file merging, and batch processing.
+The user can finely tune the output file parameters (bitrate,
+sampling rate, codec, etc.), and a built-in preview allows
+you to immediately evaluate the result.
+
+Gagarin Bridge combines simplicity and power: an intuitive interface makes
+it accessible for beginners, while advanced features will be useful for IT specialists
+and designers. The program works without a subscription – you can buy a license once
+or use the free version with a file size limit.
+Support for the Russian language, regular updates, and low system requirements
+make Gagarin Bridge one of the best offline converters for everyday
+and professional tasks.

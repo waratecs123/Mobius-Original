@@ -1,0 +1,21 @@
+Lumière Cut is a professional video editing application for PC,
+created for those looking for a powerful and convenient video processing tool.
+In terms of functionality, it is comparable to Adobe Premiere Pro and CapCut, combining
+advanced capabilities for professionals and an intuitive interface
+for beginners. The program supports multi-track editing, work with 4K and
+HDR video, and offers a wide selection of effects, transitions, and color correction
+for creating high-quality content.
+
+A distinctive feature of Lumière Cut is its optimization for different user levels.
+It has both automatic functions in the spirit of CapCut (e.g., smart cropping,
+social media templates, and AI stabilization) and manual settings familiar to
+Premiere Pro users (color curves, keyframes, mask work). The application also
+supports plugins and integration with other programs, making it a flexible
+solution for videographers, bloggers, and editors.
+
+Another plus of Lumière Cut is its accessibility. Unlike many professional
+editors, the program offers free basic functionality with the possibility of expansion
+through a subscription or one-time purchases of add-ons. It works even on mid-budget
+PCs thanks to competent optimization, and cloud project saving allows for easy
+switching between devices. It's an excellent choice for those who want a powerful
+video editor without unnecessary complexity.

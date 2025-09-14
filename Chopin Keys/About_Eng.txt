@@ -1,0 +1,24 @@
+Chopin Keys is a powerful and intuitive application for
+creating music on PC, inspired by the functionality of giants like
+FL Studio and GarageBand. It offers a full-fledged digital
+audio workstation (DAW) with support for multi-track recording,
+MIDI editing, and an extensive library of virtual instruments.
+Users can work with synthesizers, samples, audio effects,
+and parameter automation, making **Chopin Keys** an excellent choice
+for both beginner musicians and professional producers.
+
+The program stands out for its flexibility: it has ready-made loops and presets
+for a quick start (like in GarageBand), as well as advanced tools
+for fine-tuning sound (like in FL Studio). Chopin Keys supports
+VST plugins, allowing you to expand its capabilities with third-party instruments
+and effects. Moreover, the built-in AI assistant helps with arrangement,
+chord selection, and even melody generation, which is especially useful for those
+just learning music creation.
+
+Chopin Keys is distinguished by its accessibility and convenience – it works even on
+not very powerful computers, and its interface can be adapted to your
+needs. The free version offers a basic set of functions, and paid
+subscriptions or one-time purchases unlock access to professional tools
+and an expanded sound library. Cloud project synchronization allows
+you to easily work on tracks from different devices, making Chopin Keys a universal
+solution for musicians of any level.

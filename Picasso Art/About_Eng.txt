@@ -1,0 +1,24 @@
+Picasso Art is a professional graphics editor for PC,
+inspired by the capabilities of Adobe Photoshop but created for
+a broader audience – from digital artists to photographers
+and designers. The program supports working with layers, masks,
+smart objects, and advanced retouching tools, allowing for the
+creation of complex compositions and realistic photomontages. Thanks to
+support for graphics tablets and pen pressure sensitivity,
+Picasso Art is excellent for digital painting, illustration, and
+concept art.
+
+A distinctive feature of Picasso Art is the combination of professional
+functions with an accessible interface. It has everything you need: curves,
+levels, color correction, filters (including a Content-Aware Fill equivalent),
+as well as unique AI tools for automatic photo enhancement,
+background removal, and image element generation. Unlike Photoshop,
+the program offers a more intuitive menu.
+
+Picasso Art operates on a hybrid model: there is a free version with basic
+features and a paid subscription (or one-time purchase) that unlocks access
+to advanced tools, exclusive brushes, and presets. The program
+is optimized to work even on low-spec PCs, supports GPU acceleration, and
+cloud project saving. With Picasso Art, you don't need expensive licenses – it's
+a powerful alternative to Photoshop for those who want professional results without
+unnecessary complexity.

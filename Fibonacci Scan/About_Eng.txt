@@ -1,0 +1,23 @@
+Fibonacci Scan is a powerful generator and scanner of QR codes for PC,
+which goes beyond standard functions. The application allows
+you to create both simple static codes and dynamic QR links
+with statistics tracking, editable content, and password protection.
+All popular formats are supported: from URL and vCard contacts to
+WiFi authorization and crypto payments, and the built-in editor gives the opportunity
+to customize the design (logos, gradients, shaped patterns) without loss of
+readability.
+
+The program stands out with unique functions, such as AI code optimization
+for scanning even when partially damaged, batch generation for
+mass tasks, and deep analytics with scan geography.
+For security, data encryption, code expiration dates, and password protection are provided.
+Fibonacci Scan also supports rare formats like Aztec Code
+and works offline, making it a universal tool for business,
+events, and personal use.
+
+Fibonacci Scan offers a flexible access model: the free version covers
+basic needs, and a paid subscription or one-time purchase unlocks premium templates,
+API integration, and remote code management. The application is optimized for
+low-spec PCs, supports 24 languages, and has a special mode for people with disabilities.
+It is the ideal solution for those who want to turn QR codes into
+a convenient and secure digital tool.
