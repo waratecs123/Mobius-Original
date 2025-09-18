@@ -1,3 +1,4 @@
+# main.py remains unchanged
 import tkinter as tk
 from gui import TarantinoCatch
 

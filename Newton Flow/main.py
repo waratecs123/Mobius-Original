@@ -11,20 +11,17 @@ def main():
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
 
         root = tk.Tk()
-        root.title("Newton Flow Beat Pad")
+        root.title("Newton Flow Beat Pad - Professional Music Studio")
 
-        # Минимальный размер окна
-        root.minsize(1200, 800)
+        # Автоматический полноэкранный режим
+        root.attributes("-fullscreen", True)
+
+        # Кнопка выхода из полноэкранного режима
+        root.bind("<F11>", lambda e: root.attributes("-fullscreen",
+                                                     not root.attributes("-fullscreen")))
+        root.bind("<Escape>", lambda e: root.attributes("-fullscreen", False))
 
         app = BeatPadGUI(root)
-
-        # Центрируем окно
-        root.update_idletasks()
-        width = root.winfo_width()
-        height = root.winfo_height()
-        x = (root.winfo_screenwidth() // 2) - (width // 2)
-        y = (root.winfo_screenheight() // 2) - (height // 2)
-        root.geometry(f'{width}x{height}+{x}+{y}')
 
         # Обработка закрытия окна
         root.protocol("WM_DELETE_WINDOW", app.on_closing)

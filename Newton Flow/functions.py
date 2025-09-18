@@ -5,7 +5,6 @@ import time
 from datetime import datetime
 import pygame
 
-
 class BeatPadFunctions:
     def __init__(self, sound_manager):
         self.sound_manager = sound_manager

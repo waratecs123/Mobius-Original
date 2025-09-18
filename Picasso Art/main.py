@@ -1,8 +1,10 @@
 import tkinter as tk
 from gui import PaintApp
 
-if __name__ == "__main__":
+def main():
     root = tk.Tk()
-    root.attributes('-fullscreen', True)
     app = PaintApp(root)
     app.run()
+
+if __name__ == "__main__":
+    main()

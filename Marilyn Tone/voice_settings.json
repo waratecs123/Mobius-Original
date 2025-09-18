@@ -1,6 +1,20 @@
 {
-  "last_voice_index": 29,
-  "last_speed": 150,
+  "last_voice_index": 60,
+  "last_speed": 208,
   "output_folder": "C:\\Users\\USER\\Documents\\MarilynTone",
-  "auto_save": false
+  "auto_save": false,
+  "effects": {
+    "pitch_shift": {
+      "enabled": true,
+      "semitones": -12
+    },
+    "volume_adjust": {
+      "enabled": true,
+      "db": -7
+    },
+    "reverb": {
+      "enabled": true,
+      "room_scale": 37
+    }
+  }
 }

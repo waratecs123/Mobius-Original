@@ -1,54 +1,52 @@
 import tkinter as tk
-from tkinter import ttk, font
+from tkinter import ttk, messagebox
 import webbrowser
 import random
 
-
-class MöbiusApp:
+class MobiusApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Möbius")
-        self.root.geometry("1200x800")
-        self.root.configure(bg="#0a0a0a")
+        self.root.attributes('-fullscreen', True)
+        self.root.configure(bg="#0d0d0d")
+
+        # Цвета
+        self.bg_color = "#0d0d0d"
+        self.sidebar_color = "#161616"
+        self.card_color = "#1f1f1f"
+        self.accent_color = "#3fa9f5"
+        self.text_color = "#f0f0f0"
+        self.secondary_text = "#9a9a9a"
+        self.disabled_color = "#555555"
 
         # Шрифты
-        self.title_font = ('Segoe UI', 24, 'bold')
-        self.app_font = ('Segoe UI', 13)
-        self.small_font = ('Segoe UI', 11)
-        self.button_font = ('Segoe UI', 12)
+        self.title_font = ("Segoe UI", 28, "bold")
+        self.app_font = ("Segoe UI", 13)
+        self.small_font = ("Segoe UI", 11)
+        self.button_font = ("Segoe UI", 12, "bold")
 
-        # Цветовая палитра
-        self.bg_color = "#0a0a0a"
-        self.sidebar_color = "#151515"
-        self.card_color = "#1e1e1e"
-        self.accent_color = "#4870ff"
-        self.text_color = "#f0f0f0"
-        self.secondary_text = "#909090"
-        self.disabled_color = "#404040"
+        # Приложения
+        self.apps = [
+            ("Lumière Cut", "#4870ff"),
+            ("Chopin Keys", "#9c4dff"),
+            ("Gagarin Bridge", "#ff4d8d"),
+            ("Picasso Art", "#ff6b35"),
+            ("Newton Flow", "#ffc233"),
+            ("Fibonacci Scan", "#4dffdf"),
+            ("Marilyn Tone", "#ff4df0"),
+            ("Jobs Archive", "#b84dff"),
+            ("Tarantino Catch", "#ff3333"),
+            ("Michael Byte", "#33cc33")
+        ]
 
-        # Социальные ссылки
-        self.social_links = {
-            "Telegram": "https://t.me/mobius_studio",
-            "YouTube": "https://youtube.com/mobius_studio",
-            "GitHub": "https://github.com/mobius-studio"
-        }
-
-        # Приложения, которые не имеют проектов
-        self.disabled_apps = ["Gagarin Bridge", "Jobs Archive", "Marilyn Tone", "Fibonacci Scan"]
+        self.disabled_apps = ["Gagarin Bridge", "Jobs Archive", "Marilyn Tone",
+                              "Fibonacci Scan", "Tarantino Catch", "Michael Byte"]
 
         self.setup_ui()
 
+        self.root.bind("<Escape>", lambda e: self.root.quit())
+
     def setup_ui(self):
-        style = ttk.Style()
-        style.theme_use('clam')
-
-        style.configure("TFrame", background=self.bg_color)
-        style.configure("Sidebar.TFrame", background=self.sidebar_color)
-        style.configure("Card.TFrame", background=self.card_color)
-        style.configure("TLabel", background=self.card_color, foreground=self.text_color, font=self.app_font)
-        style.configure("Title.TLabel", font=self.title_font)
-        style.configure("Secondary.TLabel", foreground=self.secondary_text)
-
         main_container = ttk.Frame(self.root)
         main_container.pack(fill="both", expand=True)
 
@@ -58,291 +56,126 @@ class MöbiusApp:
         self.show_app(self.apps[0][0])
 
     def setup_sidebar(self, parent):
-        sidebar = ttk.Frame(parent, width=250, style="Sidebar.TFrame")
+        sidebar = tk.Frame(parent, bg=self.sidebar_color, width=260)
         sidebar.pack(side="left", fill="y")
         sidebar.pack_propagate(False)
 
-        # Верхняя часть сайдбара с логотипом
-        top_sidebar = ttk.Frame(sidebar, style="Sidebar.TFrame")
-        top_sidebar.pack(fill="x")
+        # Логотип
+        logo_frame = tk.Frame(sidebar, bg=self.sidebar_color)
+        logo_frame.pack(pady=30)
+        tk.Label(logo_frame, text="MÖBIUS", font=("Segoe UI", 20, "bold"), fg=self.accent_color, bg=self.sidebar_color).pack()
 
-        logo_frame = ttk.Frame(top_sidebar, style="Sidebar.TFrame")
-        logo_frame.pack(pady=(40, 50), padx=20, fill="x")
-
-        logo_canvas = tk.Canvas(logo_frame, bg=self.sidebar_color, width=40, height=40,
-                                highlightthickness=0, bd=0)
-        logo_canvas.pack(side="left")
-        logo_canvas.create_oval(5, 5, 35, 35, fill=self.accent_color, outline="")
-        logo_canvas.create_text(20, 20, text="M", font=('Segoe UI', 16, 'bold'), fill="#ffffff")
-
-        tk.Label(logo_frame, text="MÖBIUS", font=('Segoe UI', 16, 'bold'),
-                 bg=self.sidebar_color, fg=self.text_color).pack(side="left", padx=12)
-
-        apps_frame = ttk.Frame(top_sidebar, style="Sidebar.TFrame")
-        apps_frame.pack(fill="x", padx=15)
-
-        self.apps = [
-            ("Lumière Cut", "#4870ff"),
-            ("Chopin Keys", "#9c4dff"),
-            ("Gagarin Bridge", "#ff4d8d"),
-            ("Picasso Art", "#ff6b35"),
-            ("Newton Flow", "#ffc233"),
-            ("Fibonacci Scan", "#4dffdf"),
-            ("Marilyn Tone", "#ff4df0"),
-            ("Jobs Archive", "#b84dff")
-        ]
-
+        # Кнопки приложений
         self.app_buttons = []
         for app_name, color in self.apps:
-            btn_frame = tk.Frame(apps_frame, bg=self.sidebar_color, highlightthickness=0)
-            btn_frame.pack(fill="x", pady=2)
-
             is_disabled = app_name in self.disabled_apps
 
-            btn = tk.Button(btn_frame,
-                            text=app_name,
-                            font=('Segoe UI', 12, 'italic' if is_disabled else 'normal'),
-                            bg=self.sidebar_color,
-                            fg=self.disabled_color if is_disabled else self.text_color,
-                            bd=0,
-                            activebackground="#252525",
-                            activeforeground="#ffffff",
-                            padx=20,
-                            pady=12,
-                            anchor="w",
-                            highlightthickness=0,
-                            command=lambda n=app_name: self.show_app(n) if n not in self.disabled_apps else None)
-            btn.pack(fill="x")
+            btn_frame = tk.Frame(sidebar, bg=self.sidebar_color)
+            btn_frame.pack(fill="x")
 
-            btn.indicator = tk.Frame(btn_frame,
-                                     bg=color if not is_disabled else self.disabled_color,
-                                     width=0,
-                                     height=0)
-            btn.indicator.place(relx=0,
-                                rely=0.5,
-                                anchor="w",
-                                relheight=0.8)
+            indicator = tk.Frame(btn_frame, bg=self.sidebar_color, width=5)
+            indicator.pack(side="left", fill="y")
+
+            btn = tk.Label(btn_frame,
+                           text=app_name,
+                           font=("Segoe UI", 13, "italic" if is_disabled else "normal"),
+                           fg=self.disabled_color if is_disabled else self.text_color,
+                           bg=self.sidebar_color,
+                           padx=20, pady=12, anchor="w")
+            btn.pack(side="left", fill="x", expand=True)
 
             if not is_disabled:
-                btn.bind("<Enter>", lambda e, b=btn, c=color: self.on_app_btn_hover(b, c, True))
-                btn.bind("<Leave>", lambda e, b=btn: self.on_app_btn_hover(b, None, False))
+                btn.bind("<Button-1>", lambda e, n=app_name: self.show_app(n))
+                btn.bind("<Enter>", lambda e, b=btn: b.config(bg="#252525"))
+                btn.bind("<Leave>", lambda e, b=btn: b.config(bg=self.sidebar_color))
 
-            self.app_buttons.append(btn)
+            self.app_buttons.append((btn, indicator, color, is_disabled))
 
-        # Нижняя часть сайдбара с социальными ссылками
-        bottom_sidebar = ttk.Frame(sidebar, style="Sidebar.TFrame")
-        bottom_sidebar.pack(side="bottom", fill="x", pady=(0, 20))
-
-        social_frame = ttk.Frame(bottom_sidebar, style="Sidebar.TFrame")
-        social_frame.pack(side="bottom", padx=15, pady=10, fill="x")
-
-        ttk.Label(social_frame, text="Социальные сети", style="Secondary.TLabel").pack(anchor="w", pady=(0, 10))
-
-        for platform, url in self.social_links.items():
-            btn = tk.Button(social_frame, text=platform, font=self.small_font,
-                            bg=self.sidebar_color, fg=self.secondary_text, bd=0,
-                            activebackground="#252525", activeforeground=self.accent_color,
-                            padx=20, pady=6, anchor="w", command=lambda u=url: webbrowser.open(u))
-            btn.pack(fill="x", pady=2)
+        # Социальные сети
+        social_frame = tk.Frame(sidebar, bg=self.sidebar_color)
+        social_frame.pack(side="bottom", pady=30, fill="x")
+        for name, url in {"GitHub": "https://github.com/mobius-studio", "YouTube": "https://youtube.com/mobius_studio", "Telegram": "https://t.me/mobius_studio"}.items():
+            link = tk.Label(social_frame, text=name, font=self.small_font, fg=self.secondary_text,
+                            bg=self.sidebar_color, anchor="w", cursor="hand2")
+            link.pack(fill="x", padx=20, pady=4)
+            link.bind("<Button-1>", lambda e, u=url: webbrowser.open(u))
 
     def setup_main_area(self, parent):
-        self.main_area = ttk.Frame(parent, style="TFrame")
+        self.main_area = tk.Frame(parent, bg=self.bg_color)
         self.main_area.pack(side="right", fill="both", expand=True)
 
-        header_frame = ttk.Frame(self.main_area, style="TFrame")
-        header_frame.pack(fill="x", padx=30, pady=(30, 20))
+        header = tk.Frame(self.main_area, bg=self.bg_color)
+        header.pack(fill="x", pady=25, padx=40)
 
-        self.current_app = tk.StringVar(value="Добро пожаловать в Möbius")
-        ttk.Label(header_frame, textvariable=self.current_app,
-                  style="Title.TLabel").pack(side="left")
+        self.current_app = tk.StringVar(value="Добро пожаловать")
+        tk.Label(header, textvariable=self.current_app, font=self.title_font, fg=self.text_color, bg=self.bg_color).pack(side="left")
 
-        new_btn_frame = tk.Frame(header_frame, bg=self.bg_color)
-        new_btn_frame.pack(side="right")
+        new_btn = tk.Label(header, text="+ Новый проект", font=self.button_font, fg="white", bg=self.accent_color, padx=15, pady=8, cursor="hand2")
+        new_btn.pack(side="right")
+        new_btn.bind("<Enter>", lambda e: new_btn.config(bg="#2a7ed1"))
+        new_btn.bind("<Leave>", lambda e: new_btn.config(bg=self.accent_color))
+        new_btn.bind("<Button-1>", lambda e: self.create_new_project())
 
-        new_btn = tk.Button(new_btn_frame, text="Новый проект  ", font=self.button_font,
-                            bg=self.accent_color, fg="#ffffff", bd=0,
-                            activebackground="#3a5bd9", padx=16, pady=8,
-                            compound="right", command=self.create_new_project)
-        new_btn.pack()
-
-        plus_icon = tk.Label(new_btn, text="+", font=('Segoe UI', 16),
-                             bg=self.accent_color, fg="#ffffff")
-        plus_icon.place(relx=0.8, rely=0.5, anchor="center")
-
-        # Улучшенная прокрутка
-        self.scroll_frame = ttk.Frame(self.main_area, style="TFrame")
-        self.scroll_frame.pack(fill="both", expand=True, padx=(30, 15), pady=(0, 15))
-
-        self.canvas = tk.Canvas(self.scroll_frame, bg=self.bg_color, highlightthickness=0)
-        self.scrollbar = ttk.Scrollbar(self.scroll_frame, orient="vertical", command=self.canvas.yview)
-
-        self.scrollable_frame = ttk.Frame(self.canvas, style="TFrame")
-        self.scrollable_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-
-        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
-
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
-
-        # Стилизованный скроллбар
-        style = ttk.Style()
-        style.configure("TScrollbar", gripcount=0, background=self.card_color,
-                        troughcolor=self.bg_color, bordercolor=self.bg_color)
-        style.map("TScrollbar", background=[("active", self.accent_color)])
-
-        self.canvas.bind_all("<MouseWheel>", self.on_mousewheel)
-
-    def on_mousewheel(self, event):
-        self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-
-    def on_app_btn_hover(self, button, color, is_hover):
-        if is_hover:
-            button.config(bg="#252525")
-            button.indicator.config(bg=color, width=4)
-        else:
-            button.config(bg=self.sidebar_color)
-            button.indicator.config(bg=self.sidebar_color, width=0)
+        self.projects_frame = tk.Frame(self.main_area, bg=self.bg_color)
+        self.projects_frame.pack(fill="both", expand=True, padx=40, pady=20)
 
     def show_app(self, app_name):
         self.current_app.set(app_name)
-
-        for btn in self.app_buttons:
-            if btn.cget("text") == app_name:
-                btn.indicator.config(bg=self.accent_color, width=4)
-                btn.config(fg="#ffffff")
+        for btn, indicator, color, is_disabled in self.app_buttons:
+            if btn.cget("text") == app_name and not is_disabled:
+                indicator.config(bg=color)
+                btn.config(fg="white")
             else:
-                is_disabled = btn.cget("text") in self.disabled_apps
-                btn.indicator.config(bg=self.sidebar_color, width=0)
+                indicator.config(bg=self.sidebar_color)
                 btn.config(fg=self.disabled_color if is_disabled else self.secondary_text)
 
-        for widget in self.scrollable_frame.winfo_children():
+        for widget in self.projects_frame.winfo_children():
             widget.destroy()
 
         if app_name in self.disabled_apps:
-            self.show_empty_state(app_name)
+            tk.Label(self.projects_frame, text=f"{app_name} не имеет проектов", fg=self.secondary_text, bg=self.bg_color, font=("Segoe UI", 16)).pack(pady=100)
         else:
             self.show_projects(app_name)
 
-    def show_empty_state(self, app_name):
-        empty_frame = ttk.Frame(self.scrollable_frame, style="TFrame")
-        empty_frame.pack(fill="both", expand=True, pady=100)
-
-        ttk.Label(empty_frame, text="✖", font=('Segoe UI', 48),
-                  foreground=self.secondary_text).pack(pady=20)
-
-        ttk.Label(empty_frame, text=f"{app_name} не имеет проектов",
-                  font=('Segoe UI', 14), foreground=self.secondary_text).pack()
-
     def show_projects(self, app_name):
-        ttk.Label(self.scrollable_frame, text="ПОСЛЕДНИЕ ПРОЕКТЫ",
-                  font=('Segoe UI', 12, 'bold'),
-                  foreground=self.secondary_text).pack(anchor="nw", pady=(0, 20), padx=5)
+        for i in range(6):
+            card = tk.Frame(self.projects_frame, bg=self.card_color, width=260, height=200, highlightthickness=0)
+            card.grid(row=i//3, column=i%3, padx=20, pady=20)
+            card.grid_propagate(False)
 
-        projects_frame = ttk.Frame(self.scrollable_frame, style="TFrame")
-        projects_frame.pack(fill="both", expand=True)
+            # Hover эффект glow и подъем
+            def on_enter(e, c=card):
+                c.config(bg="#2a2a2a")
+                c.place_configure()
+            def on_leave(e, c=card):
+                c.config(bg=self.card_color)
+            card.bind("<Enter>", on_enter)
+            card.bind("<Leave>", on_leave)
 
-        project_count = random.randint(6, 12)
-        for i in range(project_count):
-            row = i // 3
-            col = i % 3
+            tk.Label(card, text=f"{app_name} — Проект {i+1}", fg=self.text_color, bg=card["bg"], font=("Segoe UI", 12, "bold"), anchor="w").pack(pady=(15,5), padx=10, anchor="w")
+            tk.Label(card, text=f"Изменено: {random.randint(1,28)}.09.2023", fg=self.secondary_text, bg=card["bg"], font=("Segoe UI", 10), anchor="w").pack(padx=10, anchor="w")
 
-            card = tk.Frame(projects_frame, bg=self.card_color, padx=0, pady=0,
-                            highlightthickness=0, bd=0)
-            card.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
+            actions = tk.Frame(card, bg=card["bg"])
+            actions.pack(side="bottom", fill="x", pady=10, padx=10)
 
-            # Миниатюра с плавным градиентом
-            thumbnail = tk.Canvas(card, bg="#252525", width=240, height=160,
-                                  highlightthickness=0, bd=0)
-            thumbnail.pack()
+            btn_open = tk.Label(actions, text="Открыть", font=self.button_font, fg="white", bg=self.accent_color, padx=10, pady=5, cursor="hand2")
+            btn_open.pack(side="left", padx=5)
+            btn_open.bind("<Enter>", lambda e, b=btn_open: b.config(bg="#2a7ed1"))
+            btn_open.bind("<Leave>", lambda e, b=btn_open: b.config(bg=self.accent_color))
+            btn_open.bind("<Button-1>", lambda e, n=f"{app_name}_proj_{i+1}": self.open_project(n))
 
-            # Выбираем цвет на основе названия приложения для консистентности
-            if app_name == "Lumière Cut":
-                color1 = "#4870ff"
-            elif app_name == "Chopin Keys":
-                color1 = "#9c4dff"
-            elif app_name == "Picasso Art":
-                color1 = "#ff6b35"
-            elif app_name == "Newton Flow":
-                color1 = "#ffc233"
-            else:
-                color1 = random.choice(["#4870ff", "#9c4dff", "#ff4d8d", "#ff6b35"])
-
-            color2 = self.darken_color(color1, 30)
-
-            # Создаем градиент
-            for y in range(160):
-                ratio = y / 160
-                r = int(int(color1[1:3], 16) * (1 - ratio) + int(color2[1:3], 16) * ratio)
-                g = int(int(color1[3:5], 16) * (1 - ratio) + int(color2[3:5], 16) * ratio)
-                b = int(int(color1[5:7], 16) * (1 - ratio) + int(color2[5:7], 16) * ratio)
-                color = f"#{r:02x}{g:02x}{b:02x}"
-                thumbnail.create_line(0, y, 240, y, fill=color)
-
-            thumbnail.create_text(120, 80, text=app_name[0],
-                                  font=('Segoe UI', 48, 'bold'),
-                                  fill="#ffffff")
-
-            # Информация о проекте
-            info_frame = tk.Frame(card, bg=self.card_color)
-            info_frame.pack(fill="x", padx=15, pady=(12, 10))
-
-            tk.Label(info_frame, text=f"{app_name[:3].upper()}-{random.randint(1000, 9999)}",
-                     bg=self.card_color, fg=self.text_color,
-                     font=('Segoe UI', 12, 'bold')).pack(anchor="w")
-
-            tk.Label(info_frame,
-                     text=f"Изменено: {random.randint(1, 30)}.{random.randint(1, 12)}.2023 • {random.randint(1, 50)}MB",
-                     bg=self.card_color, fg=self.secondary_text,
-                     font=('Segoe UI', 9)).pack(anchor="w", pady=(4, 0))
-
-            # Кнопки действий
-            actions_frame = tk.Frame(card, bg=self.card_color)
-            actions_frame.pack(fill="x", padx=15, pady=(0, 15))
-
-            open_btn = tk.Button(actions_frame, text="Открыть", font=self.button_font,
-                                 bg="#333333", fg=self.text_color, bd=0,
-                                 activebackground="#3a3a3a", padx=0, pady=6,
-                                 command=lambda n=f"{app_name[:3]}_project_{i + 1}": self.open_project(n))
-            open_btn.pack(side="left", fill="x", expand=True)
-
-            export_btn = tk.Button(actions_frame, text="Экспорт", font=self.button_font,
-                                   bg="#252525", fg=self.secondary_text, bd=0,
-                                   activebackground="#303030", padx=0, pady=6)
-            export_btn.pack(side="left", fill="x", expand=True, padx=(6, 0))
-
-            projects_frame.grid_rowconfigure(row, weight=1)
-            projects_frame.grid_columnconfigure(col, weight=1)
-
-    def darken_color(self, color, percent):
-        r = max(0, int(int(color[1:3], 16) * (100 - percent) / 100))
-        g = max(0, int(int(color[3:5], 16) * (100 - percent) / 100))
-        b = max(0, int(int(color[5:7], 16) * (100 - percent) / 100))
-        return f"#{r:02x}{g:02x}{b:02x}"
-
-    def open_project(self, project_name):
-        print(f"Открытие проекта: {project_name}")
+            btn_export = tk.Label(actions, text="Экспорт", font=self.button_font, fg=self.secondary_text, bg="#2a2a2a", padx=10, pady=5, cursor="hand2")
+            btn_export.pack(side="right", padx=5)
+            btn_export.bind("<Enter>", lambda e, b=btn_export: b.config(fg="white"))
+            btn_export.bind("<Leave>", lambda e, b=btn_export: b.config(fg=self.secondary_text))
 
     def create_new_project(self):
-        current_app = self.current_app.get()
-        print(f"Создание нового проекта в {current_app}")
+        messagebox.showinfo("Новый проект", f"Создание нового проекта в {self.current_app.get()}")
 
+    def open_project(self, project_name):
+        messagebox.showinfo("Открытие проекта", f"Открытие: {project_name}")
 
 if __name__ == "__main__":
     root = tk.Tk()
-
-    try:
-        root.iconbitmap("mobius_icon.ico")
-    except:
-        pass
-
-    window_width = 1200
-    window_height = 800
-    screen_width = root.winfo_screenwidth()
-    screen_height = root.winfo_screenheight()
-    x = (screen_width // 2) - (window_width // 2)
-    y = (screen_height // 2) - (window_height // 2)
-    root.geometry(f"{window_width}x{window_height}+{x}+{y}")
-
-    app = MöbiusApp(root)
+    app = MobiusApp(root)
     root.mainloop()

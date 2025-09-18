@@ -1,4 +1,3 @@
-# functions.py
 import numpy as np
 import math
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps
@@ -8,7 +7,6 @@ import os
 class TextEffectFunctions:
     @staticmethod
     def hex_to_rgb(hex_color):
-        """Convert hex color to RGB tuple."""
         if not hex_color:
             return (0, 0, 0)
         hex_color = hex_color.lstrip('#')
@@ -21,7 +19,6 @@ class TextEffectFunctions:
 
     @staticmethod
     def create_gradient_image(size, start_hex, end_hex, direction='horizontal'):
-        """Create a gradient image."""
         w, h = size
         start = TextEffectFunctions.hex_to_rgb(start_hex)
         end = TextEffectFunctions.hex_to_rgb(end_hex)
@@ -53,7 +50,6 @@ class TextEffectFunctions:
 
     @staticmethod
     def apply_gradient_to_text(text_mask, gradient_img):
-        """Apply gradient to text mask."""
         gradient_img = gradient_img.resize(text_mask.size, Image.LANCZOS)
         result = gradient_img.convert('RGBA')
         result.putalpha(text_mask)
@@ -61,7 +57,6 @@ class TextEffectFunctions:
 
     @staticmethod
     def create_text_mask(size, text, font, align='center', spacing=0, stroke_width=0, rotation=0, padding=20):
-        """Create a text mask with rotation support."""
         w, h = size
         mask = Image.new('L', (w, h), 0)
         draw = ImageDraw.Draw(mask)
@@ -95,7 +90,6 @@ class TextEffectFunctions:
 
     @staticmethod
     def create_noise_texture(size, intensity=0.2):
-        """Create a noise texture."""
         w, h = size
         intensity = float(max(0.0, min(1.0, intensity)))
         noise = np.random.randint(0, 256, (h, w), dtype=np.uint8)
@@ -107,7 +101,6 @@ class TextEffectFunctions:
 
     @staticmethod
     def apply_wave_distortion(img, amplitude=0, wavelength=30):
-        """Apply wave distortion effect."""
         if amplitude == 0:
             return img
         arr = np.array(img)
@@ -121,7 +114,6 @@ class TextEffectFunctions:
 
     @staticmethod
     def apply_perspective_like(img, strength=0):
-        """Apply a perspective-like distortion."""
         if strength == 0:
             return img
         w, h = img.size
@@ -136,7 +128,6 @@ class TextEffectFunctions:
 
     @staticmethod
     def apply_bevel(img, intensity=5):
-        """Apply a bevel effect."""
         if intensity == 0:
             return img
         embossed = img.filter(ImageFilter.EMBOSS)
@@ -144,7 +135,6 @@ class TextEffectFunctions:
 
     @staticmethod
     def apply_reflection(img, opacity=50, offset=10):
-        """Apply a reflection effect."""
         w, h = img.size
         refl = img.transpose(Image.FLIP_TOP_BOTTOM)
         refl.putalpha(refl.split()[3].point(lambda p: int(p * (opacity / 100.0))))
@@ -155,7 +145,6 @@ class TextEffectFunctions:
 
     @staticmethod
     def apply_inner_glow(mask, color, intensity=10):
-        """Apply inner glow effect."""
         glow_col = TextEffectFunctions.hex_to_rgb(color)
         gmask = mask.filter(ImageFilter.GaussianBlur(radius=max(1, intensity / 3)))
         glow_layer = Image.new('RGBA', mask.size, glow_col + (160,))
@@ -164,7 +153,6 @@ class TextEffectFunctions:
 
     @staticmethod
     def apply_neon_effect(img, color, intensity=10):
-        """Apply neon glow effect."""
         if intensity == 0:
             return img
         neon_col = TextEffectFunctions.hex_to_rgb(color)
@@ -175,7 +163,6 @@ class TextEffectFunctions:
 
     @staticmethod
     def apply_3d_effect(img, depth=10, angle=45):
-        """Apply 3D extrusion effect."""
         if depth == 0:
             return img
         w, h = img.size
@@ -191,7 +178,6 @@ class TextEffectFunctions:
 
     @staticmethod
     def calculate_text_bbox(text, font, spacing=0, stroke_width=0, rotation=0):
-        """Calculate text bounding box, accounting for rotation."""
         dummy = Image.new('L', (1, 1))
         draw = ImageDraw.Draw(dummy)
         lines = text.splitlines() or ['']
@@ -209,7 +195,6 @@ class TextEffectFunctions:
         return total_w, total_h
 
 def load_font_prefer(name_or_family, size):
-    """Load a font with Cyrillic support, with fallbacks."""
     candidates = [name_or_family] if name_or_family else []
     candidates += ["DejaVuSans.ttf", "DejaVu Sans", "LiberationSans-Regular.ttf", "Arial.ttf", "Arial"]
     if platform.system() == "Windows":
