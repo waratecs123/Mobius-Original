@@ -32,8 +32,6 @@ class ConverterGUI:
         self.batch_var = tk.BooleanVar(value=False)
         self.resize_var = tk.BooleanVar(value=False)
         self.aspect_var = tk.BooleanVar(value=True)
-        self.video_playing = False
-        self.video_thread = None
         self.download_queue = queue.Queue()
         self.queue_running = False
         self.queue_thread = None
@@ -49,81 +47,31 @@ class ConverterGUI:
         style = ttk.Style()
         style.theme_use('clam')
 
-        style.configure(".",
-                        background=self.bg_color,
-                        foreground=self.text_color,
-                        font=self.app_font)
-
+        style.configure(".", background=self.bg_color, foreground=self.text_color, font=self.app_font)
         style.configure("TFrame", background=self.bg_color)
-        style.configure("Card.TFrame",
-                        background=self.card_color,
-                        relief='flat',
-                        borderwidth=0)
-
-        style.configure("TLabel",
-                        background=self.card_color,
-                        foreground=self.text_color,
-                        font=self.app_font)
-
-        style.configure("Title.TLabel",
-                        font=self.title_font,
-                        foreground=self.text_color)
-
-        style.configure("Subtitle.TLabel",
-                        foreground=self.secondary_text,
-                        font=self.subtitle_font)
-
-        style.configure("TButton",
-                        background=self.card_color,
-                        foreground=self.text_color,
-                        font=self.button_font,
-                        borderwidth=0,
-                        focuscolor='none')
-
-        style.map("TButton",
-                  background=[('active', self.accent_hover)],
-                  foreground=[('active', '#ffffff')])
-
-        style.configure("Accent.TButton",
-                        background=self.accent_color,
-                        foreground="#ffffff",
-                        font=self.button_font,
-                        borderwidth=0)
-
-        style.map("Accent.TButton",
-                  background=[('active', self.accent_hover)],
-                  foreground=[('active', '#ffffff')])
-
-        style.configure("TEntry",
-                        fieldbackground="#2d3748",
-                        foreground=self.text_color,
-                        borderwidth=1,
-                        insertcolor=self.accent_color,
-                        padding=8,
-                        bordercolor=self.border_color)
-
-        style.configure("TCombobox",
-                        fieldbackground="#2d3748",
-                        foreground=self.text_color,
-                        selectbackground=self.accent_color,
-                        selectforeground="#ffffff",
-                        borderwidth=1,
-                        bordercolor=self.border_color)
-
-        style.configure("Horizontal.TProgressbar",
-                        background=self.accent_color,
-                        troughcolor=self.card_color,
-                        thickness=8,
-                        borderwidth=0)
-
-        style.configure("TCheckbutton",
-                        background=self.card_color,
-                        foreground=self.text_color,
+        style.configure("Card.TFrame", background=self.card_color, relief='flat', borderwidth=0)
+        style.configure("TLabel", background=self.card_color, foreground=self.text_color, font=self.app_font)
+        style.configure("Title.TLabel", font=self.title_font, foreground=self.text_color)
+        style.configure("Subtitle.TLabel", foreground=self.secondary_text, font=self.subtitle_font)
+        style.configure("TButton", background=self.card_color, foreground=self.text_color,
+                        font=self.button_font, borderwidth=0, focuscolor='none')
+        style.map("TButton", background=[('active', self.accent_hover)], foreground=[('active', '#ffffff')])
+        style.configure("Accent.TButton", background=self.accent_color, foreground="#ffffff",
+                        font=self.button_font, borderwidth=0)
+        style.map("Accent.TButton", background=[('active', self.accent_hover)], foreground=[('active', '#ffffff')])
+        style.configure("TEntry", fieldbackground="#2d3748", foreground=self.text_color, borderwidth=1,
+                        insertcolor=self.accent_color, padding=8, bordercolor=self.border_color)
+        style.configure("TCombobox", fieldbackground="#2d3748", foreground=self.text_color,
+                        selectbackground=self.accent_color, selectforeground="#ffffff",
+                        borderwidth=1, bordercolor=self.border_color)
+        style.configure("Horizontal.TProgressbar", background=self.accent_color, troughcolor=self.card_color,
+                        thickness=8, borderwidth=0)
+        style.configure("TCheckbutton", background=self.card_color, foreground=self.text_color,
                         indicatorcolor=self.accent_color)
-
-        style.map("TCheckbutton",
-                  background=[('active', self.card_color)],
+        style.map("TCheckbutton", background=[('active', self.card_color)],
                   indicatorcolor=[('selected', self.accent_color)])
+        style.configure("Horizontal.TScale", background=self.card_color, troughcolor="#2d3748",
+                        sliderlength=20, borderwidth=0)
 
     def setup_ui(self):
         self.root.title("Gagarin Bridge")
@@ -192,6 +140,7 @@ class ConverterGUI:
         preview_card.pack(fill="both", expand=True)
 
         self.setup_preview_area(preview_card)
+        self.setup_info_area(preview_card)
 
     def setup_file_selection(self, parent):
         file_frame = ttk.Frame(parent, style="Card.TFrame")
@@ -318,57 +267,58 @@ class ConverterGUI:
                                  font=self.subtitle_font, bg=self.card_color, fg=self.text_color)
         preview_title.pack(anchor="w", pady=(0, 15))
 
-        preview_container = ttk.Frame(parent, style="Card.TFrame")
-        preview_container.pack(fill="both", expand=True)
+        self.preview_container = ttk.Frame(parent, style="Card.TFrame")
+        self.preview_container.pack(fill="both", expand=True)
 
-        self.preview_canvas = tk.Canvas(preview_container, bg=self.card_color,
-                                        highlightthickness=0, relief='flat')
+        self.preview_canvas = tk.Canvas(self.preview_container, bg=self.card_color,
+                                        highlightthickness=0, relief='flat', width=800, height=600)
         self.preview_canvas.pack(fill="both", expand=True)
 
-        self.preview_canvas.create_text(200, 100, text="Выберите файл для предпросмотра",
+        self.preview_canvas.create_text(400, 300, text="Выберите файл для предпросмотра",
                                         fill=self.secondary_text, font=self.subtitle_font)
 
-        self.video_controls_frame = ttk.Frame(preview_container, style="Card.TFrame")
-        self.video_controls_frame.pack(fill="x", pady=(10, 0))
-        self.video_controls_frame.pack_forget()
+    def setup_info_area(self, parent):
+        info_card = ttk.Frame(parent, style="Card.TFrame", padding=20)
+        info_card.pack(fill="x", pady=(15, 0))
 
-        self.play_btn = ttk.Button(self.video_controls_frame, text="Пауза", style="TButton",
-                                   command=self.toggle_video_playback)
-        self.play_btn.pack(side="left", padx=5)
-
-        info_frame = ttk.Frame(parent, style="Card.TFrame")
-        info_frame.pack(fill="x")
-
-        info_title = tk.Label(info_frame, text="Информация о файле",
+        info_title = tk.Label(info_card, text="Информация о файле",
                               font=self.subtitle_font, bg=self.card_color, fg=self.text_color)
         info_title.pack(anchor="w", pady=(0, 10))
 
-        self.info_text = tk.Text(info_frame, height=8, bg="#2d3748", fg=self.text_color,
+        self.info_text = tk.Text(info_card, height=8, bg="#2d3748", fg=self.text_color,
                                  font=self.mono_font, wrap=tk.WORD, relief='flat',
                                  borderwidth=1, padx=10, pady=10)
-        self.info_text.pack(fill="x")
-        self.info_text.insert(1.0, "Файл не выбран")
+        self.info_text.pack(fill="both", expand=True)
         self.info_text.config(state=tk.DISABLED)
+        self.info_text.insert(1.0, "Файл не выбран")
 
     def update_queue_display(self):
-        queue_items = []
-        temp_queue = queue.Queue()
-        while not self.download_queue.empty():
-            item = self.download_queue.get()
-            queue_items.append(item)
-            temp_queue.put(item)
-        self.download_queue = temp_queue
+        try:
+            queue_items = []
+            temp_queue = queue.Queue()
+            while not self.download_queue.empty():
+                try:
+                    item = self.download_queue.get_nowait()
+                    queue_items.append(item)
+                    temp_queue.put(item)
+                except queue.Empty:
+                    break
+            self.download_queue.queue.clear()
+            while not temp_queue.empty():
+                self.download_queue.put(temp_queue.get_nowait())
 
-        text = "Текущая очередь:\n"
-        for i, item in enumerate(queue_items, 1):
-            status = item.get('status', 'Ожидание')
-            file_name = os.path.basename(item['input_path'])
-            text += f"{i}. {file_name} ({status})\n"
+            text = "Текущая очередь:\n"
+            for i, item in enumerate(queue_items, 1):
+                status = item.get('status', 'Ожидание')
+                file_name = os.path.basename(item['input_path'])
+                text += f"{i}. {file_name} ({status})\n"
 
-        self.queue_text.config(state=tk.NORMAL)
-        self.queue_text.delete(1.0, tk.END)
-        self.queue_text.insert(1.0, text if queue_items else "Очередь пуста")
-        self.queue_text.config(state=tk.DISABLED)
+            self.queue_text.config(state=tk.NORMAL)
+            self.queue_text.delete(1.0, tk.END)
+            self.queue_text.insert(1.0, text if queue_items else "Очередь пуста")
+            self.queue_text.config(state=tk.DISABLED)
+        except Exception as e:
+            print(f"Error updating queue display: {e}")
 
     def toggle_resize_options(self):
         if self.resize_var.get():
@@ -377,14 +327,14 @@ class ConverterGUI:
             self.size_frame.pack_forget()
 
     def on_input_changed(self, event=None):
-        input_path = self.input_entry.get()
+        input_path = self.input_entry.get().strip()
         if input_path and os.path.exists(input_path):
-            ext = os.path.splitext(input_path)[1].upper().lstrip('.')
+            ext = os.path.splitext(input_path)[1].lower().lstrip('.')
             try:
                 output_formats = self.controller.get_output_formats_for_input(ext)
                 self.format_combo['values'] = output_formats
                 if output_formats:
-                    self.format_combo.current(0)
+                    self.format_combo.set(output_formats[0])
                     self.update_output_suggestion()
                 self.update_file_info()
                 self.update_preview()
@@ -392,8 +342,15 @@ class ConverterGUI:
                 messagebox.showerror("Ошибка", f"Не удалось загрузить форматы: {str(e)}")
 
     def update_file_info(self):
-        input_path = self.input_entry.get()
+        input_path = self.input_entry.get().strip()
         if not input_path or not os.path.exists(input_path):
+            return
+
+        if os.path.isdir(input_path):
+            self.info_text.config(state=tk.NORMAL)
+            self.info_text.delete(1.0, tk.END)
+            self.info_text.insert(1.0, "Папка выбрана")
+            self.info_text.config(state=tk.DISABLED)
             return
 
         try:
@@ -429,114 +386,65 @@ class ConverterGUI:
             self.info_text.config(state=tk.DISABLED)
 
     def update_preview(self):
-        input_path = self.input_entry.get()
+        input_path = self.input_entry.get().strip()
         if not input_path or not os.path.exists(input_path):
             return
 
-        try:
-            ext = os.path.splitext(input_path)[1].lower().lstrip('.')
-            image_formats = ['jpg', 'jpeg', 'png', 'bmp', 'gif', 'tiff', 'webp']
-            video_formats = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'mkv', 'webm']
-
+        if os.path.isdir(input_path):
             self.preview_canvas.delete("all")
-            self.video_controls_frame.pack_forget()
+            self.preview_canvas.create_text(400, 300, text="Папка выбрана\nПредпросмотр недоступен",
+                                            fill=self.secondary_text, font=self.subtitle_font, justify=tk.CENTER)
+            return
 
-            self.stop_video_playback()
+        ext = os.path.splitext(input_path)[1].lower().lstrip('.')
+
+        self.preview_canvas.delete("all")
+        self.preview_canvas.create_text(400, 300, text="Загрузка предпросмотра...",
+                                        fill=self.secondary_text, font=self.app_font)
+
+        thread = threading.Thread(target=self._load_preview, args=(input_path, ext))
+        thread.daemon = True
+        thread.start()
+
+    def _load_preview(self, input_path, ext):
+        try:
+            image_formats = self.controller.supported_formats['images']
+            video_formats = self.controller.supported_formats['video']
+            document_formats = self.controller.supported_formats['documents']
 
             if ext in image_formats:
-                with Image.open(input_path) as img:
-                    img.thumbnail((400, 300), Image.Resampling.LANCZOS)
-                    photo = ImageTk.PhotoImage(img)
-                    self.preview_canvas.create_image(200, 150, image=photo)
-                    self.preview_canvas.image = photo
-
+                img = Image.open(input_path)
+                img.thumbnail((800, 600), Image.Resampling.LANCZOS)
             elif ext in video_formats:
-                try:
-                    self.start_video_playback(input_path)
-                    self.video_controls_frame.pack(fill="x", pady=(10, 0))
-
-                except Exception as e:
-                    self.preview_canvas.create_text(200, 150,
-                                                    text=f"Ошибка предпросмотра видео:\n{str(e)}",
-                                                    fill=self.error_color, font=self.app_font,
-                                                    justify=tk.CENTER)
-            else:
-                self.preview_canvas.create_text(200, 150,
-                                                text="Предпросмотр недоступен\nдля этого типа файла",
-                                                fill=self.secondary_text, font=self.subtitle_font,
-                                                justify=tk.CENTER)
-
-        except Exception as e:
-            self.preview_canvas.create_text(200, 150, text=f"Ошибка предпросмотра:\n{str(e)}",
-                                            fill=self.error_color, font=self.app_font,
-                                            justify=tk.CENTER)
-
-    def start_video_playback(self, video_path):
-        self.stop_video_playback()
-        self.video_playing = True
-        self.video_thread = threading.Thread(target=self._video_playback_loop,
-                                             args=(video_path,), daemon=True)
-        self.video_thread.start()
-
-    def stop_video_playback(self):
-        self.video_playing = False
-        if self.video_thread and self.video_thread.is_alive():
-            self.video_thread.join(timeout=1.0)
-
-    def toggle_video_playback(self):
-        self.video_playing = not self.video_playing
-        if self.video_playing:
-            self.play_btn.config(text="Пауза")
-        else:
-            self.play_btn.config(text="Воспроизвести")
-
-    def _video_playback_loop(self, video_path):
-        cap = cv2.VideoCapture(video_path)
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        if fps <= 0:
-            fps = 25
-
-        frame_time = 1.0 / fps
-        current_frame = 0
-
-        while self.video_playing and cap.isOpened():
-            start_time = time.time()
-
-            while not self.video_playing:
-                time.sleep(0.1)
-                if not self.video_playing:
-                    break
-
-            ret, frame = cap.read()
-            if not ret:
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                continue
-
-            try:
+                frame = self.controller.get_video_preview(input_path, frame_time=0.0)
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 img = Image.fromarray(frame_rgb)
-                img.thumbnail((400, 300), Image.Resampling.LANCZOS)
-                photo = ImageTk.PhotoImage(img)
+                img.thumbnail((800, 600), Image.Resampling.LANCZOS)
+            elif ext in document_formats:
+                img = self.controller.get_document_preview_image(input_path)
+                if img:
+                    img.thumbnail((800, 600), Image.Resampling.LANCZOS)
+                else:
+                    img = None
+            else:
+                img = None
 
-                self.root.after(0, self._update_video_frame, photo)
+            self.root.after(0, self._update_preview_canvas, img)
+        except Exception as e:
+            self.root.after(0, self._update_preview_canvas, None, str(e))
 
-            except Exception as e:
-                print(f"Ошибка обновления кадра: {e}")
-                break
-
-            elapsed = time.time() - start_time
-            sleep_time = max(0, frame_time - elapsed)
-            time.sleep(sleep_time)
-
-            current_frame += 1
-
-        cap.release()
-
-    def _update_video_frame(self, photo):
-        if hasattr(self, 'preview_canvas'):
-            self.preview_canvas.delete("all")
-            self.preview_canvas.create_image(200, 150, image=photo)
+    def _update_preview_canvas(self, img, error=None):
+        self.preview_canvas.delete("all")
+        if error:
+            self.preview_canvas.create_text(400, 300, text=f"Ошибка предпросмотра:\n{error}",
+                                            fill=self.error_color, font=self.app_font, justify=tk.CENTER)
+        elif img:
+            photo = ImageTk.PhotoImage(img)
+            self.preview_canvas.create_image(400, 300, image=photo)
             self.preview_canvas.image = photo
+        else:
+            self.preview_canvas.create_text(400, 300, text="Предпросмотр недоступен\nдля этого типа файла",
+                                            fill=self.secondary_text, font=self.subtitle_font, justify=tk.CENTER)
 
     def format_file_size(self, size_bytes):
         for unit in ['B', 'KB', 'MB', 'GB']:
@@ -546,11 +454,11 @@ class ConverterGUI:
         return f"{size_bytes:.1f} TB"
 
     def update_output_suggestion(self, event=None):
-        input_path = self.input_entry.get()
+        input_path = self.input_entry.get().strip()
         output_format = self.format_var.get().lower()
         if input_path and output_format:
             base_name = os.path.splitext(os.path.basename(input_path))[0]
-            output_dir = os.path.dirname(input_path)
+            output_dir = os.path.dirname(input_path) if os.path.dirname(input_path) else "."
             output_path = os.path.join(output_dir, f"{base_name}_converted.{output_format}")
             self.output_entry.delete(0, tk.END)
             self.output_entry.insert(0, output_path)
@@ -580,7 +488,10 @@ class ConverterGUI:
 
     def toggle_batch_mode(self):
         self.batch_var.set(not self.batch_var.get())
-        self.on_input_changed()
+        if self.batch_var.get():
+            self.format_combo.config(state="normal")
+        else:
+            self.format_combo.config(state="readonly")
 
     def browse_output(self):
         if self.batch_var.get():
@@ -612,18 +523,20 @@ class ConverterGUI:
         while self.queue_running:
             try:
                 task = self.download_queue.get(timeout=1.0)
-                task['status'] = 'В процессе'
-                self.update_queue_display()
-                self.convert_task(task)
-                task['status'] = 'Завершено' if task.get('success') else 'Ошибка'
-                self.update_queue_display()
+                if task:
+                    task['status'] = 'В процессе'
+                    self.root.after(0, self.update_queue_display)
+                    self.convert_task(task)
+                    task['status'] = 'Завершено' if task.get('success', False) else 'Ошибка'
+                    self.root.after(0, self.update_queue_display)
                 self.download_queue.task_done()
             except queue.Empty:
                 time.sleep(0.1)
             except Exception as e:
                 print(f"Ошибка обработки очереди: {e}")
-                task['status'] = 'Ошибка'
-                self.update_queue_display()
+                if 'task' in locals():
+                    task['status'] = 'Ошибка'
+                    self.root.after(0, self.update_queue_display)
                 self.download_queue.task_done()
 
     def queue_conversion(self):
@@ -650,11 +563,12 @@ class ConverterGUI:
                 'output_format': output_format,
                 'options': options,
                 'batch': self.batch_var.get(),
-                'status': 'Ожидание'
+                'status': 'Ожидание',
+                'success': False
             }
 
             self.download_queue.put(task)
-            self.update_queue_display()
+            self.root.after(0, self.update_queue_display)
             messagebox.showinfo("Успех", "Задача добавлена в очередь")
 
         except Exception as e:
@@ -662,49 +576,58 @@ class ConverterGUI:
 
     def convert_task(self, task):
         try:
-            self.stop_video_playback()
-            self.status_label.config(text=f"Конвертация: {os.path.basename(task['input_path'])}", fg=self.accent_color)
-            self.progress['value'] = 0
-            self.root.update()
+            self.root.after(0, lambda: self.status_label.config(
+                text=f"Конвертация: {os.path.basename(task['input_path'])}",
+                fg=self.accent_color))
+            self.root.after(0, lambda: setattr(self.progress, 'value', 0))
 
             if not task['output_format']:
                 result = self.controller.auto_convert_file(
-                    task['input_path'], os.path.dirname(task['output_path']) if task['output_path'] else None,
-                    options=task['options'], progress_callback=self.update_progress
+                    task['input_path'],
+                    os.path.dirname(task['output_path']) if task['output_path'] else None,
+                    options=task['options'],
+                    progress_callback=self.update_progress
                 )
                 task['success'] = bool(result)
             else:
                 if task['batch']:
                     task['success'] = self.controller.convert_batch(
-                        task['input_path'], task['output_path'], task['output_format'], task['options'], self.update_progress
+                        task['input_path'], task['output_path'], task['output_format'],
+                        task['options'], self.update_progress
                     )
                 else:
                     task['success'] = self.controller.convert_file(
-                        task['input_path'], task['output_path'], task['output_format'], task['options'], self.update_progress
+                        task['input_path'], task['output_path'], task['output_format'],
+                        task['options'], self.update_progress
                     )
 
-            self.status_label.config(text="Готово" if task['success'] else "Ошибка",
-                                     fg=self.success_color if task['success'] else self.error_color)
+            self.root.after(0, lambda: self.status_label.config(
+                text="Готово" if task['success'] else "Ошибка",
+                fg=self.success_color if task['success'] else self.error_color))
 
         except Exception as e:
             task['success'] = False
-            self.status_label.config(text="Ошибка", fg=self.error_color)
+            print(f"Conversion error: {e}")
+            self.root.after(0, lambda: self.status_label.config(text="Ошибка", fg=self.error_color))
 
     def clear_queue(self):
-        self.queue_running = False
-        with self.download_queue.mutex:
-            self.download_queue.queue.clear()
-        self.queue_running = True
-        self.update_queue_display()
-        messagebox.showinfo("Успех", "Очередь очищена")
+        try:
+            self.queue_running = False
+            with self.download_queue.mutex:
+                self.download_queue.queue.clear()
+            self.queue_running = True
+            self.root.after(0, self.update_queue_display)
+            messagebox.showinfo("Успех", "Очередь очищена")
+        except Exception as e:
+            print(f"Error clearing queue: {e}")
 
     def update_progress(self, value):
-        self.progress['value'] = value
-        self.root.update_idletasks()
+        try:
+            self.root.after(0, lambda: setattr(self.progress, 'value', value))
+        except:
+            pass
 
     def clear_fields(self):
-        self.stop_video_playback()
-
         self.input_entry.delete(0, tk.END)
         self.output_entry.delete(0, tk.END)
         self.format_combo.set('')
@@ -715,12 +638,22 @@ class ConverterGUI:
         self.progress['value'] = 0
         self.status_label.config(text="Готов к работе", fg=self.secondary_text)
         self.toggle_resize_options()
-        self.video_controls_frame.pack_forget()
 
         self.preview_canvas.delete("all")
-        self.preview_canvas.create_text(200, 100, text="Выберите файл для предпросмотра",
+        self.preview_canvas.create_text(400, 300, text="Выберите файл для предпросмотра",
                                         fill=self.secondary_text, font=self.subtitle_font)
         self.info_text.config(state=tk.NORMAL)
         self.info_text.delete(1.0, tk.END)
         self.info_text.insert(1.0, "Файл не выбран")
         self.info_text.config(state=tk.DISABLED)
+
+    def run(self):
+        try:
+            self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+            self.root.mainloop()
+        except Exception as e:
+            print(f"Application error: {e}")
+
+    def on_closing(self):
+        self.queue_running = False
+        self.root.destroy()

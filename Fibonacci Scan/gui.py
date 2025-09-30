@@ -3,17 +3,14 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 from functions import QRCodeFunctions
 
-
 class FibonacciScanGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Fibonacci Scan")
         self.functions = QRCodeFunctions(self)
 
-        # Настройка полноэкранного режима
         self.root.attributes('-fullscreen', True)
 
-        # Современная цветовая палитра
         self.bg_color = "#0f0f23"
         self.card_color = "#1a1a2e"
         self.accent_color = "#6366f1"
@@ -24,11 +21,9 @@ class FibonacciScanGUI:
         self.success_color = "#10b981"
         self.warning_color = "#f59e0b"
 
-        # Градиентные цвета для заголовка
         self.gradient_start = "#6366f1"
         self.gradient_end = "#8b5cf6"
 
-        # Шрифты
         self.title_font = ('Arial', 24, 'bold')
         self.subtitle_font = ('Arial', 16)
         self.app_font = ('Arial', 13)
@@ -36,19 +31,16 @@ class FibonacciScanGUI:
         self.small_font = ('Arial', 11)
         self.mono_font = ('Courier New', 10)
 
-        # Текущие настройки
         self.current_section = "Генератор QR"
+        self.zoom_factor = 1.0
 
-        # Настройка интерфейса
         self.setup_ui()
         self.setup_styles()
 
     def setup_styles(self):
-        # Стили для виджетов
         style = ttk.Style()
         style.theme_use('clam')
 
-        # Настройка стилей
         style.configure('Custom.TNotebook', background=self.card_color, borderwidth=0)
         style.configure('Custom.TNotebook.Tab',
                         background="#1a1a2e",
@@ -59,7 +51,6 @@ class FibonacciScanGUI:
                   background=[('selected', self.card_color)],
                   foreground=[('selected', self.accent_color)])
 
-        # Стиль для кнопок
         style.configure('Accent.TButton',
                         background=self.accent_color,
                         foreground='white',
@@ -90,34 +81,24 @@ class FibonacciScanGUI:
     def setup_ui(self):
         self.root.configure(bg=self.bg_color)
 
-        # Главный контейнер с тенью
         main_container = tk.Frame(self.root, bg=self.bg_color)
         main_container.pack(fill="both", expand=True, padx=20, pady=20)
 
-        # Контентная область
         content_wrapper = tk.Frame(main_container, bg=self.bg_color)
         content_wrapper.pack(fill="both", expand=True, pady=(20, 0))
 
-        # Сайдбар
         self.setup_sidebar(content_wrapper)
-
-        # Основная область
         self.setup_main_area(content_wrapper)
-
-        # Инициализация начального состояния
         self.show_section(self.current_section)
 
     def setup_app_header(self, parent):
-        """Заголовок приложения с полным названием"""
         header_frame = tk.Frame(parent, bg=self.bg_color, height=80)
         header_frame.pack(fill="x", pady=(0, 20))
         header_frame.pack_propagate(False)
 
-        # Градиентный фон для заголовка
         gradient_canvas = tk.Canvas(header_frame, bg=self.bg_color, highlightthickness=0)
         gradient_canvas.pack(fill="both", expand=True)
 
-        # Создаем градиент
         width = header_frame.winfo_reqwidth()
         for i in range(width):
             ratio = i / width
@@ -127,7 +108,6 @@ class FibonacciScanGUI:
             color = f"#{r:02x}{g:02x}{b:02x}"
             gradient_canvas.create_line(i, 0, i, 80, fill=color)
 
-        # Текст поверх градиента
         title_text = "Fibonacci Scan"
         subtitle_text = "Генератор и сканер QR-кодов"
 
@@ -148,20 +128,16 @@ class FibonacciScanGUI:
         sidebar.pack(side="left", fill="y", padx=(0, 20))
         sidebar.pack_propagate(False)
 
-        # Верхняя часть сайдбара
         top_sidebar = tk.Frame(sidebar, bg=self.card_color)
         top_sidebar.pack(fill="x", pady=(20, 30), padx=20)
 
-        # Логотип и название
         logo_frame = tk.Frame(top_sidebar, bg=self.card_color)
         logo_frame.pack(fill="x", pady=(0, 30))
 
-        # Иконка приложения
         icon_label = tk.Label(logo_frame, text="🔷", bg=self.card_color,
                               fg=self.accent_color, font=('Arial', 32))
         icon_label.pack(side="left", padx=(0, 10))
 
-        # Название приложения
         name_frame = tk.Frame(logo_frame, bg=self.card_color)
         name_frame.pack(side="left", fill="y")
 
@@ -170,17 +146,16 @@ class FibonacciScanGUI:
         tk.Label(name_frame, text="SCAN", bg=self.card_color,
                  fg=self.text_color, font=('Arial', 18, 'bold')).pack(anchor="w")
 
-        # Разделитель
         separator = tk.Frame(top_sidebar, height=2, bg=self.border_color)
         separator.pack(fill="x", pady=(0, 20))
 
-        # Меню навигации
         nav_frame = tk.Frame(top_sidebar, bg=self.card_color)
         nav_frame.pack(fill="x")
 
         nav_items = [
             ("Генератор QR", "", ""),
-            ("Сканирование", "", "")
+            ("Сканирование", "", ""),
+            ("История", "", "")
         ]
 
         self.nav_buttons = []
@@ -203,7 +178,6 @@ class FibonacciScanGUI:
                             command=lambda n=item: self.show_section(n))
             btn.pack(fill="x")
 
-            # Описание пункта меню
             desc_label = tk.Label(btn_container, text=description,
                                   bg=self.card_color, fg=self.secondary_text,
                                   font=('Arial', 9), anchor="w", justify="left")
@@ -211,23 +185,12 @@ class FibonacciScanGUI:
 
             self.nav_buttons.append(btn)
 
-        # Нижняя часть сайдбара
         bottom_sidebar = tk.Frame(sidebar, bg=self.card_color)
         bottom_sidebar.pack(side="bottom", fill="x", pady=20, padx=20)
 
-        # Статистика
         stats_frame = tk.Frame(bottom_sidebar, bg=self.card_color)
         stats_frame.pack(fill="x", pady=(0, 15))
 
-        tk.Label(stats_frame, text="Статистика", bg=self.card_color,
-                 fg=self.text_color, font=self.small_font).pack(anchor="w")
-
-        stats_text = tk.Label(stats_frame, text="Сгенерировано: 0 | Просканировано: 0",
-                              bg=self.card_color, fg=self.secondary_text,
-                              font=('Arial', 9))
-        stats_text.pack(anchor="w", pady=(2, 0))
-
-        # Кнопка выхода
         exit_btn = tk.Button(bottom_sidebar, text="Выход из приложения",
                              bg="#dc2626",
                              fg="white",
@@ -242,7 +205,6 @@ class FibonacciScanGUI:
         self.main_area = tk.Frame(parent, bg=self.bg_color)
         self.main_area.pack(side="right", fill="both", expand=True)
 
-        # Заголовок раздела
         self.header_frame = tk.Frame(self.main_area, bg=self.bg_color)
         self.header_frame.pack(fill="x", pady=(0, 20))
 
@@ -250,56 +212,43 @@ class FibonacciScanGUI:
                                       bg=self.bg_color, fg=self.text_color, font=self.title_font)
         self.section_title.pack(side="left")
 
-        # Индикатор активного раздела
         indicator = tk.Frame(self.header_frame, height=3, bg=self.accent_color, width=100)
         indicator.pack(side="left", padx=(15, 0), pady=(5, 0))
 
-        # Область контента
         self.content_frame = tk.Frame(self.main_area, bg=self.bg_color)
         self.content_frame.pack(fill="both", expand=True)
 
-        # Область предпросмотра/сканирования
         self.preview_frame = tk.Frame(self.content_frame, bg=self.card_color,
                                       padx=25, pady=25)
         self.preview_frame.pack(side="right", fill="both", expand=True, padx=(20, 0))
 
-        # Область настроек
         self.settings_frame = tk.Frame(self.content_frame, bg=self.card_color,
                                        width=400, padx=25, pady=25)
         self.settings_frame.pack(side="left", fill="y")
         self.settings_frame.pack_propagate(False)
 
     def setup_generator_ui(self):
-        # Очищаем предыдущие виджеты
         for widget in self.settings_frame.winfo_children():
             widget.destroy()
         for widget in self.preview_frame.winfo_children():
             widget.destroy()
 
-        # Обновляем заголовок
         self.section_title.config(text="Генератор QR-кодов")
-
-        # Настройки генератора QR
         self.setup_generator_settings()
-
-        # Панель предпросмотра
         self.setup_preview_ui()
 
     def setup_generator_settings(self):
         settings_container = tk.Frame(self.settings_frame, bg=self.card_color)
         settings_container.pack(fill="both", expand=True)
 
-        # Notebook для настроек с улучшенным стилем
         style = ttk.Style()
         style.configure("Custom.TNotebook.Tab", padding=[20, 8], font=self.small_font)
 
         settings_notebook = ttk.Notebook(settings_container, style="Custom.TNotebook")
 
-        # Вкладка "Дизайн"
         design_frame = tk.Frame(settings_notebook, bg=self.card_color)
         settings_notebook.add(design_frame, text="Дизайн")
 
-        # Цвета
         color_frame = tk.Frame(design_frame, bg=self.card_color)
         color_frame.pack(fill="x", pady=(0, 20))
 
@@ -327,7 +276,6 @@ class FibonacciScanGUI:
                                       padx=10, pady=5)
         self.bg_color_btn.grid(row=1, column=1, padx=(10, 0), sticky="e", pady=8)
 
-        # Логотип
         logo_frame = tk.Frame(design_frame, bg=self.card_color)
         logo_frame.pack(fill="x", pady=(0, 20))
 
@@ -351,7 +299,6 @@ class FibonacciScanGUI:
                                     padx=15, pady=8)
         remove_logo_btn.pack(side="left", fill="x", expand=True, padx=(10, 0))
 
-        # Размер
         size_frame = tk.Frame(design_frame, bg=self.card_color)
         size_frame.pack(fill="x")
 
@@ -377,11 +324,9 @@ class FibonacciScanGUI:
         self.border_entry.insert(0, str(self.functions.settings["qr_border"]))
         self.border_entry.grid(row=1, column=1, padx=(10, 0), sticky="w", pady=8)
 
-        # Вкладка "Основные"
         basic_frame = tk.Frame(settings_notebook, bg=self.card_color)
         settings_notebook.add(basic_frame, text="Основные")
 
-        # Тип содержимого
         type_frame = tk.Frame(basic_frame, bg=self.card_color)
         type_frame.pack(fill="x", pady=(0, 20))
 
@@ -396,7 +341,6 @@ class FibonacciScanGUI:
         self.content_type.pack(fill="x")
         self.content_type.bind("<<ComboboxSelected>>", self.functions.update_content_fields)
 
-        # Поле ввода данных
         data_frame = tk.Frame(basic_frame, bg=self.card_color)
         data_frame.pack(fill="x", pady=(0, 20))
 
@@ -409,11 +353,9 @@ class FibonacciScanGUI:
         self.data_entry.pack(fill="x")
         self.data_entry.insert("1.0", self.functions.settings["qr_data"])
 
-        # Вкладка "Дополнительно"
         advanced_frame = tk.Frame(settings_notebook, bg=self.card_color)
         settings_notebook.add(advanced_frame, text="Дополнительно")
 
-        # Коррекция ошибок
         error_frame = tk.Frame(advanced_frame, bg=self.card_color)
         error_frame.pack(fill="x", pady=(0, 20))
 
@@ -427,7 +369,6 @@ class FibonacciScanGUI:
         self.error_correction.set("Высокая")
         self.error_correction.pack(fill="x")
 
-        # Версия QR
         version_frame = tk.Frame(advanced_frame, bg=self.card_color)
         version_frame.pack(fill="x")
 
@@ -442,7 +383,6 @@ class FibonacciScanGUI:
 
         settings_notebook.pack(fill="both", expand=True)
 
-        # Кнопки действий
         action_frame = tk.Frame(settings_container, bg=self.card_color)
         action_frame.pack(fill="x", pady=(20, 0))
 
@@ -461,22 +401,20 @@ class FibonacciScanGUI:
         random_btn.pack(fill="x", pady=(10, 0))
 
     def setup_preview_ui(self):
-        # Заголовок
         title_frame = tk.Frame(self.preview_frame, bg=self.card_color)
         title_frame.pack(fill="x", pady=(0, 20))
 
         tk.Label(title_frame, text="ПРЕДПРОСМОТР", bg=self.card_color,
                  fg=self.text_color, font=('Arial', 16, 'bold')).pack(side="left")
 
-        # Область предпросмотра с рамкой
         preview_container = tk.Frame(self.preview_frame, bg="#1a1a2e", relief="raised", bd=1)
         preview_container.pack(fill="both", expand=True)
 
-        # Холст для QR-кода
         self.qr_canvas = tk.Canvas(preview_container, bg="#1a1a2e", highlightthickness=0)
         self.qr_canvas.pack(fill="both", expand=True, padx=40, pady=40)
 
-        # Информация о QR-коде
+        self.qr_canvas.bind("<MouseWheel>", self.zoom_qr)
+
         info_frame = tk.Frame(self.preview_frame, bg=self.card_color)
         info_frame.pack(fill="x", pady=(20, 0))
 
@@ -485,7 +423,6 @@ class FibonacciScanGUI:
                                 font=self.small_font, justify="left")
         self.qr_info.pack(anchor="w")
 
-        # Кнопки экспорта
         export_frame = tk.Frame(self.preview_frame, bg=self.card_color)
         export_frame.pack(fill="x", pady=(20, 0))
 
@@ -511,16 +448,13 @@ class FibonacciScanGUI:
         export_svg_btn.pack(side="left", fill="x", expand=True, padx=(10, 0))
 
     def setup_scan_ui(self):
-        # Очищаем предыдущие виджеты
         for widget in self.settings_frame.winfo_children():
             widget.destroy()
         for widget in self.preview_frame.winfo_children():
             widget.destroy()
 
-        # Обновляем заголовок
         self.section_title.config(text="Сканирование QR-кодов")
 
-        # Панель загрузки изображения
         scan_frame = tk.Frame(self.settings_frame, bg=self.card_color)
         scan_frame.pack(fill="both", expand=True)
 
@@ -534,13 +468,18 @@ class FibonacciScanGUI:
                              padx=20, pady=12)
         load_btn.pack(fill="x", pady=(0, 20))
 
-        # Статус сканирования
+        self.webcam_btn = tk.Button(scan_frame, text="Сканировать с веб-камеры",
+                                    bg=self.secondary_accent, fg="white",
+                                    font=self.button_font, bd=0,
+                                    command=self.functions.scan_from_webcam,
+                                    padx=20, pady=12)
+        self.webcam_btn.pack(fill="x", pady=(0, 20))
+
         self.scan_status = tk.Label(scan_frame, text="Ожидание загрузки изображения...",
                                     bg=self.card_color, fg=self.secondary_text,
                                     font=self.small_font)
         self.scan_status.pack(anchor="w", pady=(0, 10))
 
-        # Результаты сканирования
         result_frame = tk.Frame(scan_frame, bg=self.card_color)
         result_frame.pack(fill="both", expand=True)
 
@@ -554,14 +493,12 @@ class FibonacciScanGUI:
                                    insertbackground=self.text_color, wrap="word",
                                    font=self.mono_font, bd=0, relief="flat")
 
-        # Добавляем скроллбар
         scrollbar = ttk.Scrollbar(result_container, orient="vertical", command=self.scan_result.yview)
         self.scan_result.configure(yscrollcommand=scrollbar.set)
 
         self.scan_result.pack(side="left", fill="both", expand=True, padx=5, pady=5)
         scrollbar.pack(side="right", fill="y", pady=5)
 
-        # Панель предпросмотра загруженного изображения
         preview_title_frame = tk.Frame(self.preview_frame, bg=self.card_color)
         preview_title_frame.pack(fill="x", pady=(0, 20))
 
@@ -569,12 +506,20 @@ class FibonacciScanGUI:
                  fg=self.text_color, font=('Arial', 16, 'bold')).pack(side="left")
 
         self.scan_image_frame = tk.Frame(self.preview_frame, bg="#1a1a2e", relief="raised", bd=1)
-        self.scan_image_frame.pack(fill="both", expand=True)
+        self.scan_image_frame.pack(fill="x", expand=False)
 
-        self.scan_canvas = tk.Canvas(self.scan_image_frame, bg="#1a1a2e", highlightthickness=0)
-        self.scan_canvas.pack(fill="both", expand=True, padx=40, pady=40)
+        self.scan_canvas = tk.Canvas(self.scan_image_frame, bg="#1a1a2e", highlightthickness=0, height=300)
+        self.scan_canvas.pack(fill="x", padx=40, pady=20)
 
-        # Информация об изображении
+        self.qr_detected_frame = tk.Frame(self.preview_frame, bg=self.card_color)
+        self.qr_detected_frame.pack(fill="x", pady=(10, 0))
+
+        tk.Label(self.qr_detected_frame, text="ОТСКАНИРОВАННЫЙ QR-КОД", bg=self.card_color,
+                 fg=self.text_color, font=('Arial', 12, 'bold')).pack(anchor="w", pady=(0, 10))
+
+        self.qr_detected_canvas = tk.Canvas(self.qr_detected_frame, bg="#1a1a2e", highlightthickness=0, height=200)
+        self.qr_detected_canvas.pack(fill="x", padx=40)
+
         image_info_frame = tk.Frame(self.preview_frame, bg=self.card_color)
         image_info_frame.pack(fill="x", pady=(20, 0))
 
@@ -583,27 +528,94 @@ class FibonacciScanGUI:
                                    font=self.small_font)
         self.image_info.pack(anchor="w")
 
+    def setup_history_ui(self):
+        for widget in self.settings_frame.winfo_children():
+            widget.destroy()
+        for widget in self.preview_frame.winfo_children():
+            widget.destroy()
+
+        self.section_title.config(text="История (последние 15)")
+
+        history_frame = tk.Frame(self.settings_frame, bg=self.card_color)
+        history_frame.pack(fill="both", expand=True)
+
+        tk.Label(history_frame, text="ИСТОРИЯ", bg=self.card_color,
+                 fg=self.text_color, font=('Arial', 16, 'bold')).pack(pady=(0, 20))
+
+        self.history_listbox = tk.Listbox(history_frame, bg="#1a1a2e", fg=self.text_color,
+                                          font=self.small_font, selectmode=tk.SINGLE)
+        self.history_listbox.pack(fill="both", expand=True)
+        self.history_listbox.bind("<<ListboxSelect>>", self.show_history_item)
+
+        preview_title_frame = tk.Frame(self.preview_frame, bg=self.card_color)
+        preview_title_frame.pack(fill="x", pady=(0, 20))
+
+        tk.Label(preview_title_frame, text="ПРЕДПРОСМОТР ИСТОРИИ", bg=self.card_color,
+                 fg=self.text_color, font=('Arial', 16, 'bold')).pack(side="left")
+
+        self.history_canvas = tk.Canvas(self.preview_frame, bg="#1a1a2e", highlightthickness=0)
+        self.history_canvas.pack(fill="both", expand=True, padx=40, pady=40)
+
+        self.history_info = tk.Label(self.preview_frame, text="Выберите элемент из истории",
+                                     bg=self.card_color, fg=self.secondary_text,
+                                     font=self.small_font, justify="left")
+        self.history_info.pack(anchor="w", pady=(20, 0))
+
+        self.update_history_ui()
+
+    def update_history_ui(self):
+        if hasattr(self, 'history_listbox'):
+            self.history_listbox.delete(0, tk.END)
+            for idx, entry in enumerate(reversed(self.functions.history)):
+                item_text = f"{entry['type'].capitalize()}: {entry['data'][:30]}..."
+                self.history_listbox.insert(tk.END, item_text)
+
+    def show_history_item(self, event):
+        selection = self.history_listbox.curselection()
+        if selection:
+            idx = selection[0]
+            entry = self.functions.history[len(self.functions.history) - 1 - idx]
+            self.history_canvas.delete("all")
+            if entry.get('img'):
+                img = entry['img'].copy()
+                img.thumbnail((300, 300))
+                self.history_img_tk = ImageTk.PhotoImage(img)
+                canvas_width = self.history_canvas.winfo_width()
+                canvas_height = self.history_canvas.winfo_height()
+                x = (canvas_width - self.history_img_tk.width()) // 2
+                y = (canvas_height - self.history_img_tk.height()) // 2
+                self.history_canvas.create_image(x, y, image=self.history_img_tk, anchor="nw")
+            self.history_info.config(text=f"Тип: {entry['type']} | Данные: {entry['data'][:50]}...")
+
     def show_section(self, section_name):
+        if self.functions.webcam_active:
+            self.functions.stop_webcam()
         self.current_section = section_name
-        display_name = "Генератор QR-кодов" if section_name == "Генератор QR" else "Сканирование QR-кодов"
+        display_name = {
+            "Генератор QR": "Генератор QR-кодов",
+            "Сканирование": "Сканирование QR-кодов",
+            "История": "История"
+        }.get(section_name, section_name)
         self.section_title.config(text=display_name)
 
-        # Обновляем состояние кнопок навигации
         for btn in self.nav_buttons:
             if section_name in btn.cget("text"):
                 btn.config(fg=self.accent_color, bg="#1a1a2e")
             else:
                 btn.config(fg=self.secondary_text, bg=self.card_color)
 
-        # Показываем соответствующий раздел
         if section_name == "Генератор QR":
             self.setup_generator_ui()
         elif section_name == "Сканирование":
             self.setup_scan_ui()
+        elif section_name == "История":
+            self.setup_history_ui()
 
     def display_qr(self, img):
         self.qr_canvas.delete("all")
-        self.qr_image = ImageTk.PhotoImage(img)
+        new_size = (int(img.width * self.zoom_factor), int(img.height * self.zoom_factor))
+        zoomed_img = img.resize(new_size, Image.LANCZOS)
+        self.qr_image = ImageTk.PhotoImage(zoomed_img)
 
         canvas_width = self.qr_canvas.winfo_width()
         canvas_height = self.qr_canvas.winfo_height()
@@ -612,6 +624,15 @@ class FibonacciScanGUI:
         y = (canvas_height - self.qr_image.height()) // 2
 
         self.qr_canvas.create_image(x, y, image=self.qr_image, anchor="nw")
+
+    def zoom_qr(self, event):
+        if event.delta > 0:
+            self.zoom_factor *= 1.1
+        else:
+            self.zoom_factor /= 1.1
+        self.zoom_factor = max(0.5, min(self.zoom_factor, 3.0))
+        if self.functions.current_qr:
+            self.display_qr(self.functions.current_qr)
 
     def display_scan_image(self, img):
         self.scan_canvas.delete("all")
@@ -626,11 +647,39 @@ class FibonacciScanGUI:
 
         self.scan_canvas.create_image(x, y, image=self.scan_img_tk, anchor="nw")
 
+    def display_webcam_feed(self, img):
+        self.scan_canvas.delete("all")
+        img.thumbnail((400, 400))
+        self.webcam_img_tk = ImageTk.PhotoImage(img)
+
+        canvas_width = self.scan_canvas.winfo_width()
+        canvas_height = self.scan_canvas.winfo_height()
+
+        x = (canvas_width - self.webcam_img_tk.width()) // 2
+        y = (canvas_height - self.webcam_img_tk.height()) // 2
+
+        self.scan_canvas.create_image(x, y, image=self.webcam_img_tk, anchor="nw")
+
+    def clear_webcam_feed(self):
+        self.scan_canvas.delete("all")
+        self.qr_detected_canvas.delete("all")
+
+    def display_detected_qr(self, img):
+        self.qr_detected_canvas.delete("all")
+        img.thumbnail((200, 200))
+        self.qr_detected_img_tk = ImageTk.PhotoImage(img)
+
+        canvas_width = self.qr_detected_canvas.winfo_width()
+        canvas_height = self.qr_detected_canvas.winfo_height()
+
+        x = (canvas_width - self.qr_detected_img_tk.width()) // 2
+        y = (canvas_height - self.qr_detected_img_tk.height()) // 2
+
+        self.qr_detected_canvas.create_image(x, y, image=self.qr_detected_img_tk, anchor="nw")
+
     def update_scan_status(self, message, is_success=True):
-        """Обновляет статус сканирования"""
         color = self.success_color if is_success else self.warning_color
         self.scan_status.config(text=message, fg=color)
 
     def update_image_info(self, width, height, format_name):
-        """Обновляет информацию об изображении"""
         self.image_info.config(text=f"Размер: {width}x{height}px | Формат: {format_name}")

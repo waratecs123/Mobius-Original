@@ -1,0 +1,16 @@
+[
+  {
+    "url": "https://www.youtube.com/watch?v=XeHIjg16td4&list=RDMMZGEoqPpJQLE&index=10",
+    "title": "Unknown",
+    "timestamp": "2025-09-21T17:30:30.270603",
+    "status": "Failed: Произошла ошибка: ERROR: [youtube:tab] RDMMZGEoqPpJQLE: Unable to download API page: [SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1000) (caused by SSLError('[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1000)')); please report this issue on  https://github.com/yt-dlp/yt-dlp/issues?q= , filling out the appropriate issue template. Confirm you are on the latest version using  yt-dlp -U. Попробуйте снова или обратитесь в поддержку.",
+    "filepath": ""
+  },
+  {
+    "url": "https://ru.pinterest.com/pin/154670568447587116/",
+    "title": "Unknown",
+    "timestamp": "2025-09-21T17:41:09.899340",
+    "status": "Failed: Произошла ошибка: 'str' object has no attribute 'get'. Попробуйте снова или обратитесь в поддержку.",
+    "filepath": ""
+  }
+]

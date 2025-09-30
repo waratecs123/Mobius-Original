@@ -14,5 +14,6 @@ if __name__ == "__main__":
         pass
 
     os.makedirs("downloads", exist_ok=True)
+    os.makedirs("history", exist_ok=True)
     app = JobsArchiveApp(root)
     root.mainloop()

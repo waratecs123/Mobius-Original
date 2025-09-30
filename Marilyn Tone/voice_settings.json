@@ -1,12 +1,12 @@
 {
-  "last_voice_index": 60,
-  "last_speed": 208,
+  "last_voice_index": 11,
+  "last_speed": 150,
   "output_folder": "C:\\Users\\USER\\Documents\\MarilynTone",
   "auto_save": false,
   "effects": {
     "pitch_shift": {
       "enabled": true,
-      "semitones": -12
+      "semitones": 0
     },
     "volume_adjust": {
       "enabled": true,
@@ -15,6 +15,15 @@
     "reverb": {
       "enabled": true,
       "room_scale": 37
+    },
+    "emotion": {
+      "enabled": false,
+      "type": "neutral"
+    },
+    "bg_music": {
+      "enabled": false,
+      "type": "none",
+      "volume": 0.0
     }
   }
 }

@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 from functions import JobsArchiveFunctions
 import os
 from PIL import Image, ImageTk
@@ -63,7 +63,7 @@ class FormatSelectorDialog:
             selection = tree.selection()
             if selection:
                 item = tree.item(selection[0])
-                self.selected_format = item['values'][-1]  # Сохраняем выбранный формат
+                self.selected_format = item['values'][-1]
 
         def on_double_click(event):
             selection = tree.selection()
@@ -127,6 +127,7 @@ class JobsArchiveApp:
         self.small_font = ('Arial', 12)
 
         os.makedirs("downloads", exist_ok=True)
+        os.makedirs("history", exist_ok=True)
 
         self.proxy_var = tk.StringVar(value="")
         self.quality_var = tk.StringVar(value="best")
@@ -195,11 +196,14 @@ class JobsArchiveApp:
         tk.Label(header_frame, text="JOBS ARCHIVE", bg=self.bg_color,
                  fg=self.accent_color, font=self.title_font).pack(side="left")
 
-        input_frame = tk.Frame(main_container, bg=self.card_color, padx=25, pady=25)
-        input_frame.pack(fill="x", pady=(0, 25))
+        content_frame = tk.Frame(main_container, bg=self.bg_color)
+        content_frame.pack(fill="both", expand=True)
 
-        tk.Label(input_frame, text="Введите URL видео (YouTube, TikTok, VK, Instagram, Twitter/X, Facebook, Vimeo, Reddit, Twitch и др.):",
-                 bg=self.card_color, fg=self.text_color, font=self.app_font).pack(anchor="w", pady=(0, 15))
+        input_frame = tk.Frame(content_frame, bg=self.card_color, padx=25, pady=25)
+        input_frame.pack(side="left", fill="y", padx=(0, 20), anchor="n")
+
+        tk.Label(input_frame, text="Введите URL видео:", bg=self.card_color,
+                 fg=self.text_color, font=self.app_font).pack(anchor="w", pady=(0, 15))
 
         self.url_var = tk.StringVar()
         self.url_entry = tk.Entry(input_frame, textvariable=self.url_var, bg="#0f0f23", fg=self.text_color,
@@ -207,7 +211,7 @@ class JobsArchiveApp:
                                   relief="flat", highlightthickness=1,
                                   highlightcolor=self.accent_color, highlightbackground=self.border_color)
         self.url_entry.pack(fill="x", pady=10, ipady=8)
-        self.url_entry.bind("<Return>", lambda e: self.functions.start_download())
+        self.url_entry.bind("<Return>", lambda e: self.functions.add_to_queue(self.url_var.get()))
 
         self.url_entry.insert(0, "Вставьте ссылку на видео здесь...")
         self.url_entry.config(fg=self.secondary_text)
@@ -228,6 +232,7 @@ class JobsArchiveApp:
             state="readonly"
         )
         quality_box.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        quality_box.bind("<<ComboboxSelected>>", lambda e: self.functions.save_settings())
 
         tk.Label(quality_frame, text="FPS:", bg=self.card_color,
                  fg=self.text_color, font=self.app_font).pack(side="left", padx=(10, 10))
@@ -237,6 +242,7 @@ class JobsArchiveApp:
             state="readonly"
         )
         fps_box.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        fps_box.bind("<<ComboboxSelected>>", lambda e: self.functions.save_settings())
 
         tk.Label(quality_frame, text="Кодек:", bg=self.card_color,
                  fg=self.text_color, font=self.app_font).pack(side="left", padx=(10, 10))
@@ -246,10 +252,11 @@ class JobsArchiveApp:
             state="readonly"
         )
         codec_box.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        codec_box.bind("<<ComboboxSelected>>", lambda e: self.functions.save_settings())
 
         audio_check = tk.Checkbutton(quality_frame, text="Только аудио", variable=self.audio_var,
                                      bg=self.card_color, fg=self.text_color, selectcolor="#0f0f23",
-                                     font=self.app_font)
+                                     font=self.app_font, command=self.functions.save_settings)
         audio_check.pack(side="right")
 
         tk.Label(input_frame, text="Папка для сохранения:", bg=self.card_color,
@@ -267,16 +274,22 @@ class JobsArchiveApp:
         browse_btn = tk.Button(dir_frame, text="Обзор", font=self.button_font,
                                bg="#2d3748", fg=self.text_color, bd=0, activebackground="#374151",
                                padx=15, pady=8, command=self.functions.choose_dir)
-        browse_btn.pack(side="right")
+        browse_btn.pack(side="left")
 
-        tk.Label(input_frame, text="Прокси (если нужен, напр. http://127.0.0.1:8080):",
-                 bg=self.card_color, fg=self.text_color, font=self.app_font).pack(anchor="w", pady=(15, 5))
+        open_folder_btn = tk.Button(dir_frame, text="Открыть папку", font=self.button_font,
+                                    bg="#2d3748", fg=self.text_color, bd=0, activebackground="#374151",
+                                    padx=15, pady=8, command=self.functions.open_download_folder)
+        open_folder_btn.pack(side="right")
+
+        tk.Label(input_frame, text="Прокси (если нужен):", bg=self.card_color,
+                 fg=self.text_color, font=self.app_font).pack(anchor="w", pady=(15, 5))
 
         self.proxy_entry = tk.Entry(input_frame, textvariable=self.proxy_var, bg="#0f0f23", fg=self.text_color,
                                     font=self.app_font, insertbackground=self.text_color,
                                     relief="flat", highlightthickness=1,
                                     highlightcolor=self.accent_color, highlightbackground=self.border_color)
         self.proxy_entry.pack(fill="x", pady=5, ipady=8)
+        self.proxy_entry.bind("<KeyRelease>", lambda e: self.functions.save_settings())
 
         self.enable_text_editing(self.proxy_entry)
 
@@ -300,11 +313,79 @@ class JobsArchiveApp:
                   bg="#2d3748", fg=self.text_color, bd=0, activebackground="#374151",
                   padx=25, pady=12, command=self.functions.paste_url).pack(side="left", padx=(0, 15))
 
-        tk.Button(btn_frame, text="Скачать", font=self.button_font,
+        tk.Button(btn_frame, text="Добавить в очередь", font=self.button_font,
                   bg=self.accent_color, fg="#ffffff", bd=0, activebackground="#4f46e5",
-                  padx=25, pady=12, command=self.functions.start_download).pack(side="right")
+                  padx=25, pady=12, command=lambda: self.functions.add_to_queue(self.url_var.get())).pack(side="right")
 
-        log_frame = tk.Frame(main_container, bg=self.bg_color)
+        error_frame = tk.Frame(input_frame, bg=self.card_color, padx=15, pady=15)
+        error_frame.pack(fill="x", pady=(10, 0))
+
+        tk.Label(error_frame, text="Сообщения:", bg=self.card_color,
+                 fg=self.text_color, font=self.app_font).pack(anchor="w")
+
+        self.error_label = tk.Label(error_frame, text="", bg=self.card_color, fg="#ff4444",
+                                    font=self.small_font, wraplength=400, justify="left", anchor="nw",
+                                    height=3)
+        self.error_label.pack(anchor="w", pady=5, fill="x")
+
+        tk.Button(error_frame, text="Очистить лог", font=self.button_font,
+                  bg="#2d3748", fg=self.text_color, bd=0, activebackground="#374151",
+                  padx=15, pady=8, command=self.clear_log).pack(side="bottom", anchor="w", pady=5)
+
+        right_frame = tk.Frame(content_frame, bg=self.bg_color)
+        right_frame.pack(side="right", fill="both", expand=True)
+
+        queue_frame = tk.Frame(right_frame, bg=self.card_color, padx=15, pady=15)
+        queue_frame.pack(fill="x", pady=(0, 20))
+
+        tk.Label(queue_frame, text="Очередь загрузки:", bg=self.card_color,
+                 fg=self.text_color, font=self.app_font).pack(anchor="w")
+
+        self.queue_listbox = tk.Listbox(queue_frame, bg="#0f0f23", fg=self.text_color,
+                                        font=self.small_font, height=5,
+                                        relief="flat", highlightthickness=1,
+                                        highlightcolor=self.border_color,
+                                        highlightbackground=self.border_color)
+        self.queue_listbox.pack(fill="x", pady=5)
+        self.queue_listbox.bind("<Button-3>", self.show_queue_context_menu)
+
+        stats_frame = tk.Frame(right_frame, bg=self.card_color, padx=15, pady=10)
+        stats_frame.pack(fill="x", pady=(0, 20))
+
+        tk.Label(stats_frame, text="Статистика загрузок:", bg=self.card_color,
+                 fg=self.text_color, font=self.app_font).pack(anchor="w")
+        self.stats_label = tk.Label(stats_frame, text="Успешно: 0 | Неуспешно: 0",
+                                    bg=self.card_color, fg=self.text_color, font=self.small_font)
+        self.stats_label.pack(anchor="w", pady=5)
+
+        history_frame = tk.Frame(right_frame, bg=self.card_color, padx=15, pady=15)
+        history_frame.pack(fill="both", expand=True)
+
+        tk.Label(history_frame, text="История загрузок:", bg=self.card_color,
+                 fg=self.text_color, font=self.app_font).pack(anchor="w")
+
+        self.history_tree = ttk.Treeview(history_frame, columns=("title", "timestamp", "status", "filepath"),
+                                        show="headings", height=10)
+        self.history_tree.heading("title", text="Название")
+        self.history_tree.heading("timestamp", text="Время")
+        self.history_tree.heading("status", text="Статус")
+        self.history_tree.heading("filepath", text="Путь")
+        self.history_tree.column("title", width=200)
+        self.history_tree.column("timestamp", width=150)
+        self.history_tree.column("status", width=100)
+        self.history_tree.column("filepath", width=200)
+        self.history_tree.pack(fill="both", expand=True, pady=5)
+        self.history_tree.bind('<Double-1>', self.on_history_double_click)
+        self.history_tree.bind('<Button-3>', self.show_history_context_menu)
+
+        history_btn_frame = tk.Frame(history_frame, bg=self.card_color)
+        history_btn_frame.pack(fill="x", pady=5)
+
+        tk.Button(history_btn_frame, text="Очистить историю", font=self.button_font,
+                  bg="#2d3748", fg=self.text_color, bd=0, activebackground="#374151",
+                  padx=15, pady=8, command=self.functions.clear_history).pack(side="right")
+
+        log_frame = tk.Frame(right_frame, bg=self.bg_color)
         log_frame.pack(fill="both", expand=True)
 
         tk.Label(log_frame, text="Статус загрузки:", bg=self.bg_color,
@@ -321,12 +402,75 @@ class JobsArchiveApp:
                                 font=('Consolas', 11), relief="flat",
                                 highlightthickness=1, highlightcolor=self.border_color,
                                 highlightbackground=self.border_color, wrap="word")
-
         log_scrollbar = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_text.yview)
         self.log_text.configure(yscrollcommand=log_scrollbar.set)
-
         self.log_text.pack(side="left", fill="both", expand=True)
         log_scrollbar.pack(side="right", fill="y")
+
+        self.update_history_display()
+        self.update_stats_display()
+
+    def show_queue_context_menu(self, event):
+        selection = self.queue_listbox.nearest(event.y)
+        if selection >= 0:
+            self.queue_listbox.selection_clear(0, tk.END)
+            self.queue_listbox.selection_set(selection)
+            menu = tk.Menu(self.root, tearoff=0)
+            menu.add_command(label="Удалить из очереди",
+                            command=lambda: self.functions.remove_from_queue(selection))
+            try:
+                menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                menu.grab_release()
+
+    def show_history_context_menu(self, event):
+        selection = self.history_tree.selection()
+        if selection:
+            item = self.history_tree.item(selection[0])
+            url = self.functions.load_history()[self.history_tree.index(selection[0])].get("url")
+            filepath = item['values'][3]
+            menu = tk.Menu(self.root, tearoff=0)
+            menu.add_command(label="Открыть файл",
+                            command=lambda: self.functions.open_file(filepath))
+            menu.add_command(label="Повторить загрузку",
+                            command=lambda: self.functions.retry_download(url))
+            try:
+                menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                menu.grab_release()
+
+    def update_error_display(self, message):
+        self.error_label.config(text=message)
+
+    def update_queue_display(self):
+        self.queue_listbox.delete(0, tk.END)
+        for url in self.functions.download_queue:
+            self.queue_listbox.insert(tk.END, url)
+
+    def update_history_display(self):
+        for item in self.history_tree.get_children():
+            self.history_tree.delete(item)
+        history = self.functions.load_history()
+        for entry in history:
+            title = entry.get("title", "Unknown")[:50]
+            timestamp = entry.get("timestamp", "N/A")
+            status = entry.get("status", "N/A")
+            filepath = entry.get("filepath", "N/A")
+            self.history_tree.insert("", "end", values=(title, timestamp, status, filepath))
+
+    def update_stats_display(self):
+        history = self.functions.load_history()
+        successful = len([entry for entry in history if entry.get("status") == "Completed"])
+        failed = len([entry for entry in history if entry.get("status", "").startswith("Failed")])
+        self.stats_label.config(text=f"Успешно: {successful} | Неуспешно: {failed}")
+
+    def on_history_double_click(self, event):
+        selection = self.history_tree.selection()
+        if selection:
+            item = self.history_tree.item(selection[0])
+            filepath = item['values'][3]
+            if filepath:
+                self.functions.open_file(filepath)
 
     def update_progress(self, percentage):
         self.progress_bar['value'] = percentage
@@ -341,6 +485,10 @@ class JobsArchiveApp:
         self.progress_bar['value'] = 0
         self.timer_label.config(text="Время загрузки: 00:00")
         self.root.update_idletasks()
+
+    def clear_log(self):
+        self.log_text.delete("1.0", tk.END)
+        self.update_error_display("Лог очищен.")
 
     def enable_text_editing(self, entry_widget):
         entry_widget.bind("<Control-c>", lambda e: self.copy_to_clipboard(entry_widget))
@@ -413,35 +561,6 @@ class JobsArchiveApp:
             pass
         return "break"
 
-    def paste_from_clipboard(self, event=None):
-        self.paste_from_clipboard_to_entry(self.url_entry)
-
-    def show_format_selector(self, formats, is_tiktok=False):
+    def show_format_selector(self, formats):
         dialog = FormatSelectorDialog(self.root, formats, self.bg_color, self.text_color, self.accent_color)
         return dialog.show()
-
-    def show_error(self, title, message):
-        messagebox.showerror(title, message)
-
-    def show_info(self, title, message):
-        messagebox.showinfo(title, message)
-
-    def reset_url_placeholder(self):
-        self.url_var.set("Вставьте ссылку на видео здесь...")
-        self.url_entry.config(fg=self.secondary_text)
-        self.root.after(100, self.focus_url_entry)
-
-    def open_download_folder(self):
-        try:
-            path = os.path.abspath(self.out_dir_var.get())
-            os.makedirs(path, exist_ok=True)
-            if os.name == 'nt':
-                os.startfile(path)
-            elif os.name == 'posix':
-                import platform
-                if platform.system() == 'Darwin':
-                    os.system(f'open "{path}"')
-                else:  # Linux
-                    os.system(f'xdg-open "{path}"')
-        except Exception as e:
-            self.show_error("Ошибка", f"Не удалось открыть папку: {str(e)}")

@@ -1,5 +1,5 @@
 import qrcode
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageTk
 import os
 import random
 import webbrowser
@@ -9,15 +9,20 @@ import pyperclip
 import zxingcpp
 import tkinter as tk
 from tkinter import messagebox, filedialog, colorchooser
-
+import cv2
+import threading
+import numpy as np
 
 class QRCodeFunctions:
     def __init__(self, gui):
         self.gui = gui
         self.current_qr = None
         self.qr_logo = None
+        self.history = []
+        self.webcam_active = False
+        self.cap = None
 
-        # Настройки по умолчанию
+        # Default settings
         self.settings = {
             "qr_size": 300,
             "qr_version": 1,
@@ -28,6 +33,12 @@ class QRCodeFunctions:
             "qr_data": "https://example.com",
             "qr_type": "URL"
         }
+
+    def add_to_history(self, entry_type, data, img=None):
+        self.history.append({'type': entry_type, 'data': data, 'img': img})
+        if len(self.history) > 15:
+            self.history.pop(0)
+        self.gui.update_history_ui()
 
     def update_content_fields(self, event=None):
         try:
@@ -62,10 +73,8 @@ class QRCodeFunctions:
 
     def is_dark(self, hex_color):
         try:
-            # Преобразуем HEX в RGB
             hex_color = hex_color.lstrip('#')
             rgb = tuple(int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
-            # Рассчитываем яркость по формуле
             brightness = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000
             return brightness < 128
         except:
@@ -88,13 +97,11 @@ class QRCodeFunctions:
 
     def generate_qr(self):
         try:
-            # Получаем настройки из интерфейса
             self.settings["qr_data"] = self.gui.data_entry.get("1.0", tk.END).strip()
             self.settings["qr_size"] = int(self.gui.size_entry.get())
             self.settings["qr_border"] = int(self.gui.border_entry.get())
             self.settings["qr_version"] = int(self.gui.version_entry.get())
 
-            # Коррекция ошибок
             correction_map = {
                 "Низкая": qrcode.constants.ERROR_CORRECT_L,
                 "Средняя": qrcode.constants.ERROR_CORRECT_M,
@@ -103,7 +110,6 @@ class QRCodeFunctions:
             }
             self.settings["qr_error_correction"] = correction_map[self.gui.error_correction.get()]
 
-            # Создаем QR-код
             qr = qrcode.QRCode(
                 version=self.settings["qr_version"],
                 error_correction=self.settings["qr_error_correction"],
@@ -114,54 +120,42 @@ class QRCodeFunctions:
             qr.add_data(self.settings["qr_data"])
             qr.make(fit=True)
 
-            # Создаем изображение QR-кода
             img = qr.make_image(
                 fill_color=self.settings["qr_fill_color"],
                 back_color=self.settings["qr_back_color"]
             ).convert('RGB')
 
-            # Добавляем логотип, если есть
             if self.qr_logo:
-                # Масштабируем логотип
                 logo_size = min(img.size[0] // 4, img.size[1] // 4)
                 logo = self.qr_logo.resize((logo_size, logo_size))
-
-                # Позиционируем логотип по центру
                 pos = ((img.size[0] - logo.size[0]) // 2, (img.size[1] - logo.size[1]) // 2)
-
-                # Создаем белую подложку для логотипа
                 mask = Image.new('L', logo.size, 255)
                 img.paste(logo, pos, mask)
 
-            # Масштабируем изображение для отображения
             img.thumbnail((self.settings["qr_size"], self.settings["qr_size"]))
             self.current_qr = img
-
-            # Отображаем QR-код
             self.gui.display_qr(img)
 
-            # Обновляем информацию
             self.gui.qr_info.config(
                 text=f"Размер: {img.size[0]}x{img.size[1]} | Тип: {self.gui.content_type.get()} | Данные: {self.settings['qr_data'][:30]}..."
             )
+
+            self.add_to_history('generate', self.settings["qr_data"], img.copy())
 
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось сгенерировать QR-код: {str(e)}")
 
     def generate_random_qr(self):
         try:
-            # Генерируем случайные данные
-            content_type = random.choice(["URL", "Текст", "vCard", "WiFi"])
+            content_type = random.choice(["URL", "Text", "vCard", "WiFi"])
             self.gui.content_type.set(content_type)
             self.update_content_fields()
 
-            # Случайные цвета
             colors = ["#000000", "#FF0000", "#00FF00", "#0000FF", "#FF00FF", "#00FFFF", "#FFA500"]
             self.settings["qr_fill_color"] = random.choice(colors)
             self.gui.color_btn.config(bg=self.settings["qr_fill_color"],
-                                    fg="#ffffff" if self.is_dark(self.settings["qr_fill_color"]) else "#000000")
+                                      fg="#ffffff" if self.is_dark(self.settings["qr_fill_color"]) else "#000000")
 
-            # Генерируем QR-код
             self.generate_qr()
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось сгенерировать случайный QR-код: {str(e)}")
@@ -179,7 +173,6 @@ class QRCodeFunctions:
             )
 
             if file_path:
-                # Создаем полноразмерное изображение без масштабирования
                 qr = qrcode.QRCode(
                     version=self.settings["qr_version"],
                     error_correction=self.settings["qr_error_correction"],
@@ -194,7 +187,6 @@ class QRCodeFunctions:
                     back_color=self.settings["qr_back_color"]
                 ).convert('RGB')
 
-                # Добавляем логотип, если есть
                 if self.qr_logo:
                     logo_size = min(img.size[0] // 4, img.size[1] // 4)
                     logo = self.qr_logo.resize((logo_size, logo_size))
@@ -229,7 +221,6 @@ class QRCodeFunctions:
                 qr.add_data(self.settings["qr_data"])
                 qr.make(fit=True)
 
-                # Создаем SVG файл
                 factory = qrcode.image.svg.SvgPathImage
                 img = qr.make_image(
                     image_factory=factory,
@@ -248,12 +239,10 @@ class QRCodeFunctions:
             return
 
         try:
-            # Создаем временный файл в памяти
             output = io.BytesIO()
             self.current_qr.save(output, format="PNG")
             output.seek(0)
 
-            # Копируем изображение в буфер обмена
             self.gui.root.clipboard_clear()
             self.gui.root.clipboard_append(output.getvalue(), type='image/png')
             messagebox.showinfo("Успех", "QR-код скопирован в буфер обмена")
@@ -265,19 +254,84 @@ class QRCodeFunctions:
             file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.png *.jpg *.jpeg *.bmp")])
             if file_path:
                 img = Image.open(file_path)
-
-                # Отображаем изображение
                 self.gui.display_scan_image(img)
-
-                # Сканируем QR-код
                 results = zxingcpp.read_barcodes(img)
 
                 if results:
                     self.gui.scan_result.delete("1.0", tk.END)
+                    data = ""
                     for result in results:
-                        self.gui.scan_result.insert("1.0", f"Тип: {result.format}\nДанные: {result.text}\n\n")
+                        data += f"Тип: {result.format}\nДанные: {result.text}\n\n"
+                    self.gui.scan_result.insert("1.0", data)
+                    self.add_to_history('scan', data.strip(), img.copy())
                 else:
                     self.gui.scan_result.delete("1.0", tk.END)
                     self.gui.scan_result.insert("1.0", "QR-код не обнаружен")
         except Exception as e:
             messagebox.showerror("Ошибка", f"Не удалось загрузить или сканировать изображение: {str(e)}")
+
+    def scan_from_webcam(self):
+        try:
+            if self.webcam_active:
+                messagebox.showinfo("Информация", "Сканирование уже выполняется")
+                return
+
+            self.cap = cv2.VideoCapture(0)
+            if not self.cap.isOpened():
+                messagebox.showerror("Ошибка", "Не удалось открыть веб-камеру")
+                return
+
+            self.webcam_active = True
+            self.gui.webcam_btn.config(text="Остановить сканирование", command=self.stop_webcam)
+            self.gui.update_scan_status("Сканирование с веб-камеры...", True)
+
+            def webcam_loop():
+                while self.webcam_active:
+                    ret, frame = self.cap.read()
+                    if not ret:
+                        self.gui.root.after(0, lambda: messagebox.showerror("Ошибка", "Не удалось получить кадр с веб-камеры"))
+                        break
+
+                    img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                    img.thumbnail((400, 400))
+                    self.gui.display_webcam_feed(img)
+
+                    results = zxingcpp.read_barcodes(img)
+                    if results:
+                        self.webcam_active = False
+                        data = ""
+                        for result in results:
+                            data += f"Тип: {result.format}\nДанные: {result.text}\n\n"
+                        self.gui.scan_result.delete("1.0", tk.END)
+                        self.gui.scan_result.insert("1.0", data)
+                        self.add_to_history('scan', data.strip(), img.copy())
+                        self.gui.display_detected_qr(img)
+                        self.gui.root.after(0, lambda: messagebox.showinfo("Успех", "QR-код обнаружен и отсканирован"))
+                        break
+
+                    self.gui.root.after(10, lambda: None)  # Allow Tkinter to process events
+
+                if self.cap:
+                    self.cap.release()
+                    self.cap = None
+                self.webcam_active = False
+                self.gui.webcam_btn.config(text="Сканировать с веб-камеры", command=self.scan_from_webcam)
+                self.gui.update_scan_status("Сканирование остановлено", False)
+
+            threading.Thread(target=webcam_loop, daemon=True).start()
+        except Exception as e:
+            if self.cap:
+                self.cap.release()
+                self.cap = None
+            self.webcam_active = False
+            self.gui.webcam_btn.config(text="Сканировать с веб-камеры", command=self.scan_from_webcam)
+            messagebox.showerror("Ошибка", f"Не удалось сканировать с веб-камеры: {str(e)}")
+
+    def stop_webcam(self):
+        self.webcam_active = False
+        if self.cap:
+            self.cap.release()
+            self.cap = None
+        self.gui.webcam_btn.config(text="Сканировать с веб-камеры", command=self.scan_from_webcam)
+        self.gui.update_scan_status("Сканирование остановлено", False)
+        self.gui.clear_webcam_feed()

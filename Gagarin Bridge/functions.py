@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import json
 import csv
 import shutil
@@ -30,20 +30,20 @@ import tempfile
 class ConverterController:
     def __init__(self):
         self.supported_formats = {
-            'images': ['jpg', 'jpeg', 'png', 'bmp', 'gif', 'tiff', 'webp', 'ico', 'heic', 'psd', 'raw'],
-            'data': ['csv', 'json', 'xlsx', 'xls', 'txt', 'xml', 'yaml', 'h5', 'sql'],
-            'documents': ['pdf', 'doc', 'docx', 'txt', 'rtf', 'md', 'html', 'odt', 'epub'],
-            'audio': ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'wma', 'aac', 'aiff'],
-            'video': ['mp4', 'avi', 'mov', 'wmv', 'flv', 'mkv', 'webm', 'mpeg', 'mpg'],
-            'archives': ['zip', 'tar', 'gz', 'bz2', 'xz', '7z', 'rar'],
-            'code': ['py', 'js', 'java', 'cpp', 'c', 'cs', 'rb', 'php', 'go', 'ts'],
-            'other': ['bin', 'iso', 'dmg', 'db']
+            'images': ['jpg', 'jpeg', 'png', 'bmp', 'gif', 'tiff', 'webp', 'ico', 'heic', 'psd', 'raw', 'svg', 'eps'],
+            'data': ['csv', 'json', 'xlsx', 'xls', 'txt', 'xml', 'yaml', 'h5', 'sql', 'parquet', 'feather'],
+            'documents': ['pdf', 'doc', 'docx', 'txt', 'rtf', 'md', 'html', 'odt', 'epub', 'tex', 'pptx', 'odp'],
+            'audio': ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'wma', 'aac', 'aiff', 'opus', 'amr'],
+            'video': ['mp4', 'avi', 'mov', 'wmv', 'flv', 'mkv', 'webm', 'mpeg', 'mpg', 'm4v', '3gp'],
+            'archives': ['zip', 'tar', 'gz', 'bz2', 'xz', '7z', 'rar', 'z', 'cab'],
+            'code': ['py', 'js', 'java', 'cpp', 'c', 'cs', 'rb', 'php', 'go', 'ts', 'html', 'css'],
+            'other': ['bin', 'iso', 'dmg', 'db', 'sqlite']
         }
 
         self.pil_format_mapping = {
             'jpg': 'JPEG', 'jpeg': 'JPEG', 'png': 'PNG', 'bmp': 'BMP',
             'gif': 'GIF', 'tiff': 'TIFF', 'webp': 'WEBP', 'ico': 'ICO',
-            'heic': 'HEIF', 'raw': 'RAW'
+            'heic': 'HEIF', 'raw': 'RAW', 'svg': 'SVG', 'eps': 'EPS'
         }
 
         self.conversion_stats = {
@@ -244,6 +244,10 @@ class ConverterController:
                 conn = sqlite3.connect(input_path)
                 df = pd.read_sql_query("SELECT * FROM sqlite_master", conn)
                 conn.close()
+            elif input_ext in ['parquet']:
+                df = pd.read_parquet(input_path)
+            elif input_ext in ['feather']:
+                df = pd.read_feather(input_path)
             elif input_ext in ['txt']:
                 with open(input_path, 'r', encoding='utf-8') as f:
                     content = f.read()
@@ -276,6 +280,16 @@ class ConverterController:
                     data = {"content": content}
                     with open(output_path, 'w', encoding='utf-8') as f:
                         yaml.dump(data, f)
+                    return True
+                elif output_format == 'parquet':
+                    lines = content.split('\n')
+                    df = pd.DataFrame(lines, columns=['Content'])
+                    df.to_parquet(output_path)
+                    return True
+                elif output_format == 'feather':
+                    lines = content.split('\n')
+                    df = pd.DataFrame(lines, columns=['Content'])
+                    df.to_feather(output_path)
                     return True
                 else:
                     return self._copy_file(input_path, output_path)
@@ -310,6 +324,10 @@ class ConverterController:
                 conn = sqlite3.connect(output_path)
                 df.to_sql('data', conn, index=False, if_exists='replace')
                 conn.close()
+            elif output_format == 'parquet':
+                df.to_parquet(output_path)
+            elif output_format == 'feather':
+                df.to_feather(output_path)
             return True
         except Exception as e:
             raise Exception(f"Data conversion error: {e}")
@@ -317,38 +335,55 @@ class ConverterController:
     def _convert_document(self, input_path, output_path, output_format):
         try:
             input_ext = os.path.splitext(input_path)[1].lower().lstrip('.')
-            if input_ext == 'pdf' and output_format == 'txt':
-                with fitz.open(input_path) as doc:
-                    text = ""
-                    for page in doc:
-                        text += page.get_text()
-                with open(output_path, 'w', encoding='utf-8') as f:
-                    f.write(text)
-                return True
-            elif input_ext == 'pdf' and output_format in ['doc', 'docx']:
+            if input_ext == 'pdf':
+                doc = fitz.open(input_path)
                 text = ""
-                with fitz.open(input_path) as doc:
-                    for page in doc:
-                        text += page.get_text()
-                doc = Document()
-                doc.add_paragraph(text)
-                doc.save(output_path)
-                return True
-            elif input_ext in ['doc', 'docx'] and output_format == 'pdf':
-                pythoncom.CoInitialize()
-                word = win32com.client.Dispatch("Word.Application")
-                word.Visible = False
-                doc = word.Documents.Open(input_path)
-                doc.SaveAs(output_path, FileFormat=17)
-                doc.Close()
-                word.Quit()
-                return True
-            elif input_ext in ['doc', 'docx'] and output_format == 'txt':
-                doc = Document(input_path)
-                text = "\n".join([para.text for para in doc.paragraphs])
-                with open(output_path, 'w', encoding='utf-8') as f:
-                    f.write(text)
-                return True
+                for page in doc:
+                    text += page.get_text()
+                doc.close()
+                if output_format == 'txt':
+                    with open(output_path, 'w', encoding='utf-8') as f:
+                        f.write(text)
+                    return True
+                elif output_format in ['doc', 'docx']:
+                    docx = Document()
+                    docx.add_paragraph(text)
+                    docx.save(output_path)
+                    return True
+                elif output_format == 'md':
+                    with open(output_path, 'w', encoding='utf-8') as f:
+                        f.write(text.replace('\n\n', '\n'))
+                    return True
+                elif output_format == 'html':
+                    html_content = f"<html><body><p>{text.replace('\n', '<br>')}</p></body></html>"
+                    with open(output_path, 'w', encoding='utf-8') as f:
+                        f.write(html_content)
+                    return True
+            elif input_ext in ['doc', 'docx']:
+                docx = Document(input_path)
+                text = "\n".join([para.text for para in docx.paragraphs])
+                if output_format == 'pdf':
+                    pythoncom.CoInitialize()
+                    word = win32com.client.Dispatch("Word.Application")
+                    word.Visible = False
+                    doc = word.Documents.Open(input_path)
+                    doc.SaveAs(output_path, FileFormat=17)
+                    doc.Close()
+                    word.Quit()
+                    return True
+                elif output_format == 'txt':
+                    with open(output_path, 'w', encoding='utf-8') as f:
+                        f.write(text)
+                    return True
+                elif output_format == 'md':
+                    with open(output_path, 'w', encoding='utf-8') as f:
+                        f.write(text)
+                    return True
+                elif output_format == 'html':
+                    html_content = f"<html><body><p>{text.replace('\n', '<br>')}</p></body></html>"
+                    with open(output_path, 'w', encoding='utf-8') as f:
+                        f.write(html_content)
+                    return True
             elif input_ext == 'md' and output_format == 'html':
                 with open(input_path, 'r', encoding='utf-8') as f:
                     md_content = f.read()
@@ -363,13 +398,25 @@ class ConverterController:
                 with open(output_path, 'w', encoding='utf-8') as f:
                     f.write(md_content)
                 return True
-            elif input_ext == 'txt' and output_format == 'docx':
+            elif input_ext == 'txt':
                 with open(input_path, 'r', encoding='utf-8') as f:
                     text = f.read()
-                doc = Document()
-                doc.add_paragraph(text)
-                doc.save(output_path)
-                return True
+                if output_format == 'docx':
+                    doc = Document()
+                    doc.add_paragraph(text)
+                    doc.save(output_path)
+                    return True
+                elif output_format == 'pdf':
+                    doc = fitz.open()
+                    page = doc.new_page()
+                    page.insert_text((72, 72), text)
+                    doc.save(output_path)
+                    return True
+                elif output_format == 'html':
+                    html_content = f"<html><body><p>{text.replace('\n', '<br>')}</p></body></html>"
+                    with open(output_path, 'w', encoding='utf-8') as f:
+                        f.write(html_content)
+                    return True
             else:
                 return self._copy_file(input_path, output_path)
         except Exception as e:
@@ -385,7 +432,27 @@ class ConverterController:
 
     def _convert_video(self, input_path, output_path, output_format):
         try:
-            return self._copy_file(input_path, output_path)
+            cap = cv2.VideoCapture(input_path)
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Default
+            if output_format == 'avi':
+                fourcc = cv2.VideoWriter_fourcc(*'DIVX')
+            elif output_format == 'mkv':
+                fourcc = cv2.VideoWriter_fourcc(*'XVID')
+            elif output_format == 'mov':
+                fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+            # Add more fourcc codes as needed
+            writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                writer.write(frame)
+            cap.release()
+            writer.release()
+            return True
         except Exception as e:
             raise Exception(f"Video conversion error: {e}")
 
@@ -506,3 +573,100 @@ class ConverterController:
             return info
         except Exception as e:
             raise Exception(f"Error retrieving file info: {e}")
+
+    def extract_document_preview(self, file_path, max_lines=20):
+        ext = os.path.splitext(file_path)[1].lower().lstrip('.')
+        text = ""
+        if ext == 'pdf':
+            with fitz.open(file_path) as doc:
+                for page in doc:
+                    text += page.get_text()
+                    if len(text.split('\n')) > max_lines:
+                        break
+        elif ext in ['doc', 'docx']:
+            doc = Document(file_path)
+            text = "\n".join([para.text for para in doc.paragraphs][:max_lines])
+        elif ext in ['txt', 'md', 'html']:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()[:max_lines]
+                text = ''.join(lines)
+        return text
+
+    def get_document_preview_image(self, file_path):
+        ext = os.path.splitext(file_path)[1].lower().lstrip('.')
+        try:
+            if ext == 'pdf':
+                doc = fitz.open(file_path)
+                page = doc.load_page(0)
+                pix = page.get_pixmap(matrix=fitz.Matrix(1.0, 1.0))
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                doc.close()
+                return img
+            elif ext in ['doc', 'docx']:
+                temp_pdf = tempfile.mktemp('.pdf')
+                pythoncom.CoInitialize()
+                word = win32com.client.Dispatch("Word.Application")
+                word.Visible = False
+                doc = word.Documents.Open(os.path.abspath(file_path))
+                doc.SaveAs(temp_pdf, FileFormat=17)
+                doc.Close()
+                word.Quit()
+                doc = fitz.open(temp_pdf)
+                page = doc.load_page(0)
+                pix = page.get_pixmap(matrix=fitz.Matrix(1.0, 1.0))
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                doc.close()
+                os.remove(temp_pdf)
+                return img
+            elif ext in ['txt', 'md', 'html']:
+                if ext == 'txt':
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        text = f.read(5000)  # Reduced limit for optimization
+                elif ext == 'md':
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        md_content = f.read(5000)
+                    html = markdown.markdown(md_content)
+                    text = html2text.html2text(html)
+                elif ext == 'html':
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        html_content = f.read(5000)
+                    text = html2text.html2text(html_content)
+                # Create image
+                img_width = 800
+                img_height = 1200
+                img = Image.new('RGB', (img_width, img_height), color='white')
+                draw = ImageDraw.Draw(img)
+                try:
+                    font = ImageFont.truetype("arial.ttf", 12)
+                except:
+                    font = ImageFont.load_default()
+                # Draw wrapped text
+                margin = 72
+                max_width = img_width - 2 * margin
+                y = margin
+                line_height = font.getbbox('A')[3] - font.getbbox('A')[1] + 2
+                for paragraph in text.split('\n'):
+                    words = paragraph.split()
+                    line = ''
+                    for word in words:
+                        test_line = line + word + ' '
+                        w = draw.textlength(test_line, font=font)
+                        if w > max_width:
+                            draw.text((margin, y), line, fill='black', font=font)
+                            y += line_height
+                            line = word + ' '
+                            if y > img_height - margin - line_height:
+                                break
+                        else:
+                            line = test_line
+                    if line:
+                        draw.text((margin, y), line, fill='black', font=font)
+                        y += line_height
+                    y += line_height / 2  # paragraph spacing
+                    if y > img_height - margin - line_height:
+                        break
+                return img
+            else:
+                return None
+        except Exception as e:
+            raise Exception(f"Error generating document preview image: {e}")

@@ -1,6 +1,6 @@
 import tkinter as tk
-from tkinter import filedialog, ttk, simpledialog
-from PIL import Image, ImageTk, ImageDraw
+from tkinter import filedialog, ttk, messagebox
+from PIL import Image, ImageTk
 import os, threading, time
 import functions as fn
 import traceback
@@ -18,9 +18,7 @@ LABELS = {
     'crop': 'Обрезать',
     'zoom': 'Зум',
     'rotate': 'Поворот',
-    'brush': 'Кисть (удаление объектов)',
-    'bg_blur': 'Кисть (размытие фона)',
-    'bg_remove': 'Кисть (удаление фона)',
+    'undo': 'Отменить'
 }
 
 class PicassoGUI(tk.Frame):
@@ -28,24 +26,29 @@ class PicassoGUI(tk.Frame):
         super().__init__(master, bg='#0f0f23')
         self.master = master
         self.pack(fill='both', expand=True)
+        self.original_image = None
         self.image = None
         self.preview_image = None
         self.tk_image = None
         self.preset_thumbs = {}
         self.preset_buttons = {}
         self.thumb_refs = []
-        self.brush_mask = None
-        self.brush_mode = None
-        self.brush_points = []
-        self.last_cursor_pos = None
-        self.brush_cursor_image = None
+        self.history = []
         self.params = {
             'brightness': 0, 'contrast': 0, 'saturation': 0, 'clarity': 0, 'exposure': 0,
-            'sepia': 0, 'invert': 0, 'hue': 0, 'temperature': 0, 'blur': 0,
-            'scale': 1.0, 'vignette': 0.0, 'zoom': 1.0, 'rotate': 0,
-            'brush_size': 20, 'brush_strength': 100, 'bg_blur_radius': 10, 'bg_remove_strength': 100,
+            'sepia': 0, 'invert': 0, 'hue': 0, 'temperature': 0, 'tint': 0,
+            'gamma': 1.0, 'highlights': 0, 'shadows': 0, 'whites': 0, 'blacks': 0,
+            'vibrance': 0, 'fade': 0, 'curve': 0, 'color_balance': 0, 'selective_color': 0,
+            'scale': 1.0, 'zoom': 1.0, 'rotate': 0,
             'crop_x': 0, 'crop_y': 0, 'crop_w': 0, 'crop_h': 0,
-            'grain': 0, 'posterize_bits': 8, 'solarize_thresh': 128
+            'blur': 0, 'vignette': 0.0, 'grain': 0, 'posterize_bits': 8, 'solarize_thresh': 128,
+            'emboss': 0, 'edge_enhance': 0, 'contour': 0, 'sharpen': 0,
+            'mirror': False, 'flip': False,
+            'find_edges': 0, 'smooth': 0, 'unsharp_radius': 0, 'unsharp_percent': 150, 'unsharp_threshold': 3,
+            'median_size': 1, 'box_radius': 0, 'min_size': 1, 'max_size': 1, 'mode_size': 1,
+            'rank_size': 1, 'rank': 0, 'detail': 0, 'edge_detect': 0, 'bilateral_sigma_color': 0,
+            'bilateral_sigma_space': 75, 'cartoon': 0, 'oil_radius': 0, 'watercolor': 0, 'sketch': 0,
+            'grayscale': 0, 'glitch_intensity': 0, 'glitch_slices': 8
         }
         self.bg_color = "#0f0f23"
         self.card_color = "#1a1a2e"
@@ -55,8 +58,6 @@ class PicassoGUI(tk.Frame):
         self.secondary_text = "#94a3b8"
         self.border_color = "#0f0f23"
         self.success_color = "#10b981"
-        self.gradient_start = "#6366f1"
-        self.gradient_end = "#8b5cf6"
         self.title_font = ('Arial', 24, 'bold')
         self.subtitle_font = ('Arial', 16)
         self.app_font = ('Arial', 13)
@@ -65,13 +66,12 @@ class PicassoGUI(tk.Frame):
         self.create_widgets()
         self.after_id = None
         self.crop_start = None
-        self.canvas.bind('<Button-1>', self.start_crop_or_brush)
-        self.canvas.bind('<B1-Motion>', self.update_crop_or_brush)
-        self.canvas.bind('<ButtonRelease-1>', self.end_crop_or_brush)
+        self.canvas.bind('<Button-1>', self.start_crop)
+        self.canvas.bind('<B1-Motion>', self.update_crop)
+        self.canvas.bind('<ButtonRelease-1>', self.end_crop)
         self.canvas.bind('<MouseWheel>', self.zoom_canvas)
         self.canvas.bind('<Button-4>', self.zoom_canvas)
         self.canvas.bind('<Button-5>', self.zoom_canvas)
-        self.canvas.bind('<Motion>', self.update_brush_cursor)
 
     def setup_styles(self):
         style = ttk.Style()
@@ -106,7 +106,6 @@ class PicassoGUI(tk.Frame):
         self.setup_styles()
         w = self.master.winfo_screenwidth()
         left_w = 400
-        right_w = w - left_w
         main_container = tk.Frame(self, bg=self.bg_color, padx=20, pady=20)
         main_container.pack(fill='both', expand=True)
         left = tk.Frame(main_container, width=left_w, bg=self.card_color, padx=15, pady=15)
@@ -126,21 +125,28 @@ class PicassoGUI(tk.Frame):
                    style='Accent.TButton').pack(fill='x', pady=5)
         ttk.Button(btn_frame, text=LABELS['reset'], command=self.reset_controls,
                    style='Secondary.TButton').pack(fill='x', pady=5)
+        ttk.Button(btn_frame, text=LABELS['apply'], command=self.apply_changes,
+                   style='Accent.TButton').pack(fill='x', pady=5)
+        ttk.Button(btn_frame, text=LABELS['undo'], command=self.undo_last,
+                   style='Secondary.TButton').pack(fill='x', pady=5)
         notebook = ttk.Notebook(left, style='Custom.TNotebook')
         notebook.pack(fill='both', expand=True, pady=15)
-        adj_frame = tk.Frame(notebook, bg=self.card_color)
-        notebook.add(adj_frame, text='Настройки')
-        controls_canvas = tk.Canvas(adj_frame, bg=self.card_color, highlightthickness=0)
-        controls_canvas.pack(side='top', fill='both', expand=True)
-        controls_inner = tk.Frame(controls_canvas, bg=self.card_color)
-        controls_canvas.create_window((0, 0), window=controls_inner, anchor='nw')
-        controls_canvas.configure(scrollregion=controls_canvas.bbox("all"))
-        controls_inner.bind("<Configure>", lambda e: controls_canvas.configure(scrollregion=controls_canvas.bbox("all")))
-        controls_canvas.bind_all("<MouseWheel>", lambda e: controls_canvas.yview_scroll(-1 * int(e.delta / 120), "units"))
-        controls_canvas.bind_all("<Button-4>", lambda e: controls_canvas.yview_scroll(-1, "units"))
-        controls_canvas.bind_all("<Button-5>", lambda e: controls_canvas.yview_scroll(1, "units"))
+        color_frame = tk.Frame(notebook, bg=self.card_color)
+        notebook.add(color_frame, text='Настройки цвета')
+        color_canvas = tk.Canvas(color_frame, bg=self.card_color, highlightthickness=0)
+        color_canvas.pack(side='left', fill='both', expand=True)
+        color_scroll = tk.Scrollbar(color_frame, orient='vertical', command=color_canvas.yview,
+                                    bg=self.card_color, troughcolor=self.bg_color)
+        color_scroll.pack(side='right', fill='y')
+        color_inner = tk.Frame(color_canvas, bg=self.card_color)
+        color_canvas.create_window((0, 0), window=color_inner, anchor='nw')
+        color_canvas.configure(yscrollcommand=color_scroll.set)
+        color_inner.bind("<Configure>", lambda e: color_canvas.configure(scrollregion=color_canvas.bbox("all")))
+        color_canvas.bind_all("<MouseWheel>", lambda e: color_canvas.yview_scroll(-1 * int(e.delta / 120), "units"))
+        color_canvas.bind_all("<Button-4>", lambda e: color_canvas.yview_scroll(-1, "units"))
+        color_canvas.bind_all("<Button-5>", lambda e: color_canvas.yview_scroll(1, "units"))
         self.sliders = {}
-        slider_specs = [
+        color_slider_specs = [
             ('brightness', 'Яркость', -100, 100, 0),
             ('contrast', 'Контраст', -100, 100, 0),
             ('saturation', 'Насыщенность', -100, 100, 0),
@@ -150,21 +156,96 @@ class PicassoGUI(tk.Frame):
             ('invert', 'Инвертировать', 0, 100, 0),
             ('hue', 'Смещение оттенка', -180, 180, 0),
             ('temperature', 'Температура', -100, 100, 0),
+            ('tint', 'Тон', -100, 100, 0),
+            ('gamma', 'Гамма', 0.1, 5.0, 1.0),
+            ('highlights', 'Света', -100, 100, 0),
+            ('shadows', 'Тени', -100, 100, 0),
+            ('whites', 'Белые', -100, 100, 0),
+            ('blacks', 'Чёрные', -100, 100, 0),
+            ('vibrance', 'Вибрация', -100, 100, 0),
+            ('fade', 'Выцветание', 0, 100, 0),
+            ('curve', 'Кривая', -100, 100, 0),
+            ('color_balance', 'Баланс цвета', -100, 100, 0),
+            ('selective_color', 'Выборочный цвет', -100, 100, 0),
+            ('grayscale', 'Черно-белый', 0, 100, 0)
+        ]
+        for i, (key, label, mn, mx, default) in enumerate(color_slider_specs):
+            row = tk.Frame(color_inner, bg=self.card_color)
+            row.grid(row=i, column=0, sticky='ew', pady=5)
+            tk.Label(row, text=label, width=20, anchor='w', bg=self.card_color,
+                     fg=self.secondary_text, font=self.small_font).pack(side='left')
+            res = 0.01 if key == 'gamma' else 1
+            s = tk.Scale(row, from_=mn, to=mx, resolution=res, orient='horizontal',
+                         length=150, command=self.on_slider(key),
+                         bg=self.card_color, fg=self.text_color,
+                         highlightthickness=0, troughcolor=self.bg_color,
+                         activebackground=self.accent_color)
+            s.set(default)
+            s.pack(side='right')
+            self.sliders[key] = s
+            self.params[key] = default
+        mirror_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(color_inner, text='Зеркальное отражение', variable=mirror_var,
+                       command=lambda: self.set_param('mirror', mirror_var.get()),
+                       bg=self.card_color, fg=self.text_color,
+                       selectcolor=self.bg_color).grid(row=len(color_slider_specs), column=0, sticky='w', pady=5)
+        flip_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(color_inner, text='Перевернуть вертикально', variable=flip_var,
+                       command=lambda: self.set_param('flip', flip_var.get()),
+                       bg=self.card_color, fg=self.text_color,
+                       selectcolor=self.bg_color).grid(row=len(color_slider_specs)+1, column=0, sticky='w', pady=5)
+        spacer = tk.Frame(color_inner, bg=self.card_color, height=20)
+        spacer.grid(row=len(color_slider_specs)+2, column=0, sticky='ew')
+        color_inner.grid_columnconfigure(0, weight=1)
+        effects_frame = tk.Frame(notebook, bg=self.card_color)
+        notebook.add(effects_frame, text='Эффекты')
+        effects_canvas = tk.Canvas(effects_frame, bg=self.card_color, highlightthickness=0)
+        effects_canvas.pack(side='left', fill='both', expand=True)
+        effects_scroll = tk.Scrollbar(effects_frame, orient='vertical', command=effects_canvas.yview,
+                                      bg=self.card_color, troughcolor=self.bg_color)
+        effects_scroll.pack(side='right', fill='y')
+        effects_inner = tk.Frame(effects_canvas, bg=self.card_color)
+        effects_canvas.create_window((0, 0), window=effects_inner, anchor='nw')
+        effects_canvas.configure(yscrollcommand=effects_scroll.set)
+        effects_inner.bind("<Configure>", lambda e: effects_canvas.configure(scrollregion=effects_canvas.bbox("all")))
+        effects_canvas.bind_all("<MouseWheel>", lambda e: effects_canvas.yview_scroll(-1 * int(e.delta / 120), "units"))
+        effects_canvas.bind_all("<Button-4>", lambda e: effects_canvas.yview_scroll(-1, "units"))
+        effects_canvas.bind_all("<Button-5>", lambda e: effects_canvas.yview_scroll(1, "units"))
+        effects_slider_specs = [
             ('blur', 'Размытие', 0, 20, 0),
             ('vignette', 'Виньетка', 0, 100, 0),
             ('grain', 'Зернистость', 0, 50, 0),
             ('posterize_bits', 'Постеризация (биты)', 1, 8, 8),
             ('solarize_thresh', 'Соляризация (порог)', 0, 255, 128),
-            ('scale', 'Масштаб (превью)', 0.1, 3.0, 1.0),
-            ('zoom', 'Зум', 0.1, 5.0, 1.0),
-            ('rotate', 'Поворот (°)', 0, 360, 0),
+            ('emboss', 'Эмбосс', 0, 100, 0),
+            ('edge_enhance', 'Усиление краёв', 0, 100, 0),
+            ('contour', 'Контур', 0, 100, 0),
+            ('sharpen', 'Резкость', 0, 100, 0),
+            ('find_edges', 'Обнаружение краёв', 0, 100, 0),
+            ('smooth', 'Сглаживание', 0, 100, 0),
+            ('unsharp_radius', 'Unsharp Mask (радиус)', 0, 10, 0),
+            ('median_size', 'Медианный фильтр (размер)', 1, 9, 1),
+            ('box_radius', 'Box Blur (радиус)', 0, 20, 0),
+            ('min_size', 'Min Filter (размер)', 1, 9, 1),
+            ('max_size', 'Max Filter (размер)', 1, 9, 1),
+            ('mode_size', 'Mode Filter (размер)', 1, 9, 1),
+            ('rank_size', 'Rank Filter (размер)', 1, 9, 1),
+            ('detail', 'Детализация', 0, 100, 0),
+            ('edge_detect', 'Обнаружение краёв (усиленное)', 0, 100, 0),
+            ('bilateral_sigma_color', 'Билатеральный фильтр (цвет)', 0, 150, 0),
+            ('cartoon', 'Карикатура', 0, 100, 0),
+            ('oil_radius', 'Масляная живопись (радиус)', 0, 10, 0),
+            ('watercolor', 'Акварель', 0, 100, 0),
+            ('sketch', 'Эскиз', 0, 100, 0),
+            ('glitch_intensity', 'Глитч (интенсивность)', 0, 20, 0),
+            ('glitch_slices', 'Глитч (срезы)', 1, 20, 8)
         ]
-        for i, (key, label, mn, mx, default) in enumerate(slider_specs):
-            row = tk.Frame(controls_inner, bg=self.card_color)
+        for i, (key, label, mn, mx, default) in enumerate(effects_slider_specs):
+            row = tk.Frame(effects_inner, bg=self.card_color)
             row.grid(row=i, column=0, sticky='ew', pady=5)
             tk.Label(row, text=label, width=20, anchor='w', bg=self.card_color,
                      fg=self.secondary_text, font=self.small_font).pack(side='left')
-            res = 0.01 if key in ['scale', 'zoom'] else 1
+            res = 0.1 if 'radius' in key else 1
             s = tk.Scale(row, from_=mn, to=mx, resolution=res, orient='horizontal',
                          length=150, command=self.on_slider(key),
                          bg=self.card_color, fg=self.text_color,
@@ -174,42 +255,9 @@ class PicassoGUI(tk.Frame):
             s.pack(side='right')
             self.sliders[key] = s
             self.params[key] = default
-        spacer = tk.Frame(controls_inner, bg=self.card_color, height=20)
-        spacer.grid(row=len(slider_specs), column=0, sticky='ew')
-        controls_inner.grid_columnconfigure(0, weight=1)
-        brush_frame = tk.Frame(notebook, bg=self.card_color)
-        notebook.add(brush_frame, text='Кисти')
-        brush_btn_frame = tk.Frame(brush_frame, bg=self.card_color)
-        brush_btn_frame.pack(fill='x', pady=10)
-        ttk.Button(brush_btn_frame, text=LABELS['brush'], command=lambda: self.toggle_brush('inpaint'),
-                   style='Accent.TButton').pack(fill='x', pady=5)
-        ttk.Button(brush_btn_frame, text=LABELS['bg_blur'], command=lambda: self.toggle_brush('bg_blur'),
-                   style='Accent.TButton').pack(fill='x', pady=5)
-        ttk.Button(brush_btn_frame, text=LABELS['bg_remove'], command=lambda: self.toggle_brush('bg_remove'),
-                   style='Accent.TButton').pack(fill='x', pady=5)
-        brush_controls = tk.Frame(brush_frame, bg=self.card_color)
-        brush_controls.pack(fill='x', pady=10)
-        brush_slider_specs = [
-            ('brush_size', 'Размер кисти', 1, 100, 20),
-            ('brush_strength', 'Сила кисти', 0, 100, 100),
-            ('bg_blur_radius', 'Радиус размытия фона', 0, 50, 10),
-            ('bg_remove_strength', 'Сила удаления фона', 0, 100, 100),
-        ]
-        for key, label, mn, mx, default in brush_slider_specs:
-            row = tk.Frame(brush_controls, bg=self.card_color)
-            row.pack(fill='x', pady=5)
-            tk.Label(row, text=label, width=20, anchor='w', bg=self.card_color,
-                     fg=self.secondary_text, font=self.small_font).pack(side='left')
-            res = 1
-            s = tk.Scale(row, from_=mn, to=mx, resolution=res, orient='horizontal',
-                         length=150, command=self.on_slider(key),
-                         bg=self.card_color, fg=self.text_color,
-                         highlightthickness=0, troughcolor=self.bg_color,
-                         activebackground=self.accent_color)
-            s.set(default)
-            s.pack(side='right')
-            self.sliders[key] = s
-            self.params[key] = default
+        spacer = tk.Frame(effects_inner, bg=self.card_color, height=20)
+        spacer.grid(row=len(effects_slider_specs), column=0, sticky='ew')
+        effects_inner.grid_columnconfigure(0, weight=1)
         preset_frame = tk.Frame(notebook, bg=self.card_color)
         notebook.add(preset_frame, text='Пресеты')
         preset_canvas = tk.Canvas(preset_frame, bg=self.card_color, highlightthickness=0)
@@ -234,6 +282,12 @@ class PicassoGUI(tk.Frame):
         self.canvas = tk.Canvas(right, bg=self.bg_color, highlightthickness=0)
         self.canvas.pack(fill='both', expand=True)
 
+    def set_param(self, key, value):
+        self.params[key] = value
+        if self.after_id:
+            self.after_cancel(self.after_id)
+        self.after_id = self.after(100, self.update_preview)
+
     def on_slider(self, key):
         def update(value):
             self.params[key] = float(value)
@@ -242,64 +296,37 @@ class PicassoGUI(tk.Frame):
             self.after_id = self.after(100, self.update_preview)
         return update
 
-    def toggle_brush(self, mode):
+    def start_crop(self, event):
         if self.image is None:
-            print("toggle_brush: No image loaded")
+            messagebox.showerror("Ошибка", "Сначала загрузите изображение")
             return
         try:
-            if self.brush_mode == mode:
-                self.brush_mode = None
-                self.brush_mask = None
-                self.canvas.delete('brush_cursor')
-                self.brush_cursor_image = None
-            else:
-                self.brush_mode = mode
-                self.brush_mask = Image.new('L', self.image.size, 0)
-                self.brush_points = []
-            self.update_preview()
+            self.crop_start = (event.x, event.y)
+            self.canvas.delete('crop_rect')
         except Exception as e:
-            print(f"toggle_brush: Error - {traceback.format_exc()}")
+            print(f"start_crop: Error - {traceback.format_exc()}")
+            messagebox.showerror("Ошибка", f"Ошибка при начале обрезки: {str(e)}")
 
-    def start_crop_or_brush(self, event):
+    def update_crop(self, event):
         if self.image is None:
-            print("start_crop_or_brush: No image loaded")
+            messagebox.showerror("Ошибка", "Сначала загрузите изображение")
             return
         try:
-            if self.brush_mode:
-                self.brush_points.append((event.x, event.y))
-                self.last_cursor_pos = (event.x, event.y)
-                self.update_brush_mask(event)
-            else:
-                self.crop_start = (event.x, event.y)
-                self.canvas.delete('crop_rect')
-        except Exception as e:
-            print(f"start_crop_or_brush: Error - {traceback.format_exc()}")
-
-    def update_crop_or_brush(self, event):
-        if self.image is None:
-            print("update_crop_or_brush: No image loaded")
-            return
-        try:
-            if self.brush_mode:
-                self.brush_points.append((event.x, event.y))
-                self.last_cursor_pos = (event.x, event.y)
-                self.update_brush_mask(event)
-            elif self.crop_start:
+            if self.crop_start:
                 x0, y0 = self.crop_start
                 x1, y1 = event.x, event.y
                 self.canvas.delete('crop_rect')
                 self.canvas.create_rectangle(x0, y0, x1, y1, outline=self.accent_color, width=2, tags='crop_rect')
         except Exception as e:
-            print(f"update_crop_or_brush: Error - {traceback.format_exc()}")
+            print(f"update_crop: Error - {traceback.format_exc()}")
+            messagebox.showerror("Ошибка", f"Ошибка при обновлении обрезки: {str(e)}")
 
-    def end_crop_or_brush(self, event):
+    def end_crop(self, event):
         if self.image is None:
-            print("end_crop_or_brush: No image loaded")
+            messagebox.showerror("Ошибка", "Сначала загрузите изображение")
             return
         try:
-            if self.brush_mode:
-                self.apply_brush()
-            elif self.crop_start:
+            if self.crop_start:
                 x0, y0 = self.crop_start
                 x1, y1 = event.x, event.y
                 cw = max(1, self.canvas.winfo_width() or 800)
@@ -316,119 +343,48 @@ class PicassoGUI(tk.Frame):
                 img_y0 = max(0, min(ih - 1, img_y0))
                 img_x1 = max(0, min(iw - 1, img_x1))
                 img_y1 = max(0, min(ih - 1, img_y1))
-                self.params['crop_x'] = img_x0
-                self.params['crop_y'] = img_y0
-                self.params['crop_w'] = img_x1 - img_x0
-                self.params['crop_h'] = img_y1 - img_y0
+                if img_x1 > img_x0 and img_y1 > img_y0:
+                    self.history.append(self.image.copy())
+                    self.image = fn.crop_image(self.image, img_x0, img_y0, img_x1 - img_x0, img_y1 - img_y0)
                 self.canvas.delete('crop_rect')
                 self.crop_start = None
                 self.update_preview()
         except Exception as e:
-            print(f"end_crop_or_brush: Error - {traceback.format_exc()}")
-
-    def update_brush_cursor(self, event=None, x=None, y=None):
-        if self.image is None or not self.brush_mode:
-            self.canvas.delete('brush_cursor')
-            return
-        try:
-            x = x or event.x
-            y = y or event.y
-            brush_size = max(1, int(self.params['brush_size'] / self.params['zoom']))
-            cursor = Image.new('RGBA', (brush_size * 2, brush_size * 2), (0, 0, 0, 0))
-            draw = ImageDraw.Draw(cursor)
-            draw.ellipse((0, 0, brush_size * 2, brush_size * 2), outline=self.accent_color, width=2)
-            self.brush_cursor_image = ImageTk.PhotoImage(cursor)
-            self.canvas.delete('brush_cursor')
-            self.canvas.create_image(x, y, image=self.brush_cursor_image, tags='brush_cursor')
-        except Exception as e:
-            print(f"update_brush_cursor: Error - {traceback.format_exc()}")
-
-    def update_brush_mask(self, event):
-        if not self.brush_points or not self.brush_mode or not self.image:
-            print("update_brush_mask: Invalid state (no points, mode, or image)")
-            return
-        try:
-            draw = ImageDraw.Draw(self.brush_mask)
-            brush_size = max(1, int(self.params['brush_size'] / self.params['zoom']))
-            brush_strength = int(self.params['brush_strength'] * 2.55)
-            cw = max(1, self.canvas.winfo_width() or 800)
-            ch = max(1, self.canvas.winfo_height() or 600)
-            iw, ih = self.image.size
-            scale = min(max(0.05, min(cw / iw, ch / ih)), 5.0) * self.params['zoom']
-            offset_x = (cw - iw * scale) / 2
-            offset_y = (ch - ih * scale) / 2
-            def canvas_to_image(x, y):
-                img_x = int((x - offset_x) / scale)
-                img_y = int((y - offset_y) / scale)
-                img_x = max(0, min(iw - 1, img_x))
-                img_y = max(0, min(ih - 1, img_y))
-                return img_x, img_y
-            for i in range(len(self.brush_points) - 1):
-                x0, y0 = self.brush_points[i]
-                x1, y1 = self.brush_points[i + 1]
-                x0_img, y0_img = canvas_to_image(x0, y0)
-                x1_img, y1_img = canvas_to_image(x1, y1)
-                draw.line((x0_img, y0_img, x1_img, y1_img), fill=brush_strength, width=brush_size)
-                draw.ellipse((x0_img - brush_size // 2, y0_img - brush_size // 2,
-                              x0_img + brush_size // 2, y0_img + brush_size // 2),
-                             fill=brush_strength)
-                draw.ellipse((x1_img - brush_size // 2, y1_img - brush_size // 2,
-                              x1_img + brush_size // 2, y1_img + brush_size // 2),
-                             fill=brush_strength)
-            self.update_preview()
-        except Exception as e:
-            print(f"update_brush_mask: Error - {traceback.format_exc()}")
-
-    def apply_brush(self):
-        if self.image is None or self.brush_mask is None:
-            print("apply_brush: No image or mask available")
-            return
-        try:
-            if self.brush_mode == 'inpaint':
-                self.image = fn.apply_inpaint(self.image, self.brush_mask)
-            elif self.brush_mode == 'bg_blur':
-                self.image = fn.apply_background_blur(self.image, self.brush_mask, self.params['bg_blur_radius'])
-            elif self.brush_mode == 'bg_remove':
-                self.image = fn.apply_background_remove(self.image, self.brush_mask, self.params['bg_remove_strength'])
-            self.brush_mask = Image.new('L', self.image.size, 0)
-            self.brush_points = []
-            self.update_preview()
-        except Exception as e:
-            print(f"apply_brush: Error - {traceback.format_exc()}")
+            print(f"end_crop: Error - {traceback.format_exc()}")
+            messagebox.showerror("Ошибка", f"Ошибка при завершении обрезки: {str(e)}")
 
     def zoom_canvas(self, event):
         if self.image is None:
-            print("zoom_canvas: No image loaded")
+            messagebox.showerror("Ошибка", "Сначала загрузите изображение")
             return
         try:
             delta = 0.1 if event.delta > 0 or event.num == 4 else -0.1
             new_zoom = max(0.1, min(5.0, self.params['zoom'] + delta))
             self.params['zoom'] = new_zoom
-            self.sliders['zoom'].set(new_zoom)
             self.update_preview()
         except Exception as e:
             print(f"zoom_canvas: Error - {traceback.format_exc()}")
+            messagebox.showerror("Ошибка", f"Ошибка при зумировании: {str(e)}")
 
     def load_image(self):
         path = filedialog.askopenfilename(filetypes=[('Изображения', '*.png;*.jpg;*.jpeg;*.bmp;*.tiff')])
         if not path:
             return
         try:
-            img = Image.open(path)
-            self.image = img.convert('RGB')
-            self.brush_mask = None
-            self.brush_mode = None
-            self.canvas.delete('brush_cursor')
-            self.brush_cursor_image = None
+            self.original_image = Image.open(path)
+            self.image = self.original_image.convert('RGB')
+            self.history = [self.image.copy()]
+            self.canvas.delete('crop_rect')
             self.reset_controls()
             self.update_preview()
             threading.Thread(target=self.generate_preset_thumbnails, daemon=True).start()
         except Exception as e:
             print(f"load_image: Error - {traceback.format_exc()}")
+            messagebox.showerror("Ошибка", f"Не удалось загрузить изображение: {str(e)}")
 
     def save_image(self):
         if self.preview_image is None:
-            print("save_image: No preview image available")
+            messagebox.showerror("Ошибка", "Нет изображения для сохранения")
             return
         try:
             size_dialog = tk.Toplevel(self.master)
@@ -447,17 +403,25 @@ class PicassoGUI(tk.Frame):
             ]
             selected_size = tk.StringVar(value="Оригинальный размер")
             for label, _ in sizes:
-                tk.Radiobutton(size_dialog, text=label, variable=selected_size, value=label, bg=self.card_color, fg=self.text_color, selectcolor=self.bg_color, font=self.small_font).pack(anchor='w', padx=20)
+                tk.Radiobutton(size_dialog, text=label, variable=selected_size, value=label,
+                               bg=self.card_color, fg=self.text_color, selectcolor=self.bg_color,
+                               font=self.small_font).pack(anchor='w', padx=20)
             custom_frame = tk.Frame(size_dialog, bg=self.card_color)
             custom_frame.pack(pady=10)
-            tk.Label(custom_frame, text="Ширина:", bg=self.card_color, fg=self.text_color, font=self.small_font).pack(side='left')
-            width_entry = tk.Entry(custom_frame, width=10, bg=self.bg_color, fg=self.text_color, insertbackground=self.text_color)
+            tk.Label(custom_frame, text="Ширина:", bg=self.card_color, fg=self.text_color,
+                     font=self.small_font).pack(side='left')
+            width_entry = tk.Entry(custom_frame, width=10, bg=self.bg_color, fg=self.text_color,
+                                   insertbackground=self.text_color)
             width_entry.pack(side='left', padx=5)
-            tk.Label(custom_frame, text="Высота:", bg=self.card_color, fg=self.text_color, font=self.small_font).pack(side='left')
-            height_entry = tk.Entry(custom_frame, width=10, bg=self.bg_color, fg=self.text_color, insertbackground=self.text_color)
+            tk.Label(custom_frame, text="Высота:", bg=self.card_color, fg=self.text_color,
+                     font=self.small_font).pack(side='left')
+            height_entry = tk.Entry(custom_frame, width=10, bg=self.bg_color, fg=self.text_color,
+                                    insertbackground=self.text_color)
             height_entry.pack(side='left', padx=5)
             preserve_aspect = tk.BooleanVar(value=True)
-            tk.Checkbutton(custom_frame, text="Сохранить пропорции", variable=preserve_aspect, bg=self.card_color, fg=self.text_color, selectcolor=self.bg_color, font=self.small_font).pack(pady=5)
+            tk.Checkbutton(custom_frame, text="Сохранить пропорции", variable=preserve_aspect,
+                           bg=self.card_color, fg=self.text_color, selectcolor=self.bg_color,
+                           font=self.small_font).pack(pady=5)
             def update_height(*args):
                 if preserve_aspect.get() and width_entry.get().isdigit():
                     orig_w, orig_h = self.preview_image.size
@@ -492,10 +456,10 @@ class PicassoGUI(tk.Frame):
                         if width > 0 and height > 0:
                             img_to_save = self.preview_image.resize((width, height), Image.LANCZOS)
                         else:
-                            tk.messagebox.showerror("Ошибка", "Ширина и высота должны быть больше 0.")
+                            messagebox.showerror("Ошибка", "Ширина и высота должны быть больше 0.")
                             return
                     except:
-                        tk.messagebox.showerror("Ошибка", "Введите корректные числовые значения для ширины и высоты.")
+                        messagebox.showerror("Ошибка", "Введите корректные числовые значения для ширины и высоты.")
                         return
                 else:
                     for label, size in sizes:
@@ -504,7 +468,8 @@ class PicassoGUI(tk.Frame):
                             break
                 size_dialog.destroy()
             img_to_save = self.preview_image
-            tk.Button(size_dialog, text="Подтвердить", command=confirm_size, bg=self.accent_color, fg='white', font=self.button_font).pack(pady=10)
+            tk.Button(size_dialog, text="Подтвердить", command=confirm_size,
+                      bg=self.accent_color, fg='white', font=self.button_font).pack(pady=10)
             self.master.wait_window(size_dialog)
             filetypes = [('JPEG', '*.jpg'), ('PNG', '*.png'), ('BMP', '*.bmp'), ('TIFF', '*.tiff')]
             path = filedialog.asksaveasfilename(defaultextension='.jpg', filetypes=filetypes)
@@ -514,58 +479,57 @@ class PicassoGUI(tk.Frame):
             print(f"save_image: Saved to {os.path.abspath(path)}")
         except Exception as e:
             print(f"save_image: Error - {traceback.format_exc()}")
+            messagebox.showerror("Ошибка", f"Не удалось сохранить изображение: {str(e)}")
 
     def reset_controls(self):
         try:
+            if self.original_image is not None:
+                self.image = self.original_image.copy().convert('RGB')
+                self.history = [self.image.copy()]
             for k, s in self.sliders.items():
-                if k in ['scale', 'zoom']:
+                if k in ['scale', 'zoom', 'gamma']:
                     s.set(1.0)
                     self.params[k] = 1.0
-                elif k == 'brush_size':
-                    s.set(20)
-                    self.params[k] = 20
-                elif k == 'brush_strength':
-                    s.set(100)
-                    self.params[k] = 100
-                elif k == 'bg_blur_radius':
-                    s.set(10)
-                    self.params[k] = 10
-                elif k == 'bg_remove_strength':
-                    s.set(100)
-                    self.params[k] = 100
                 elif k == 'posterize_bits':
                     s.set(8)
                     self.params[k] = 8
                 elif k == 'solarize_thresh':
                     s.set(128)
                     self.params[k] = 128
+                elif k in ['median_size', 'min_size', 'max_size', 'mode_size', 'rank_size']:
+                    s.set(1)
+                    self.params[k] = 1
+                elif k in ['unsharp_radius', 'box_radius', 'find_edges', 'smooth', 'detail', 'edge_detect', 'bilateral_sigma_color', 'cartoon', 'oil_radius', 'watercolor', 'sketch', 'vignette', 'blur', 'grain', 'emboss', 'edge_enhance', 'contour', 'sharpen', 'glitch_intensity', 'glitch_slices']:
+                    s.set(0 if k != 'glitch_slices' else 8)
+                    self.params[k] = 0 if k != 'glitch_slices' else 8
                 else:
                     s.set(0)
                     self.params[k] = 0
-            self.brush_mode = None
-            self.brush_mask = None
-            self.canvas.delete('brush_cursor')
-            self.brush_cursor_image = None
+            self.params['mirror'] = False
+            self.params['flip'] = False
+            self.canvas.delete('crop_rect')
             self.update_preview()
+            threading.Thread(target=self.generate_preset_thumbnails, daemon=True).start()
         except Exception as e:
             print(f"reset_controls: Error - {traceback.format_exc()}")
+            messagebox.showerror("Ошибка", f"Ошибка при сбросе настроек: {str(e)}")
 
     def apply_preset(self, name):
         try:
             preset = fn.PRESETS.get(name, {})
-            for k in list(self.params.keys()):
-                if k in preset and not preset.get('special'):
-                    self.params[k] = preset[k]
-                    if k in self.sliders:
-                        self.sliders[k].set(preset[k])
-            self.params.update(preset)
+            self.reset_controls()  # Reset before applying preset
+            for k, v in preset.items():
+                self.params[k] = v
+                if k in self.sliders:
+                    self.sliders[k].set(v)
             self.update_preview()
+            threading.Thread(target=self.generate_preset_thumbnails, daemon=True).start()
         except Exception as e:
             print(f"apply_preset: Error - {traceback.format_exc()}")
+            messagebox.showerror("Ошибка", f"Ошибка при применении пресета: {str(e)}")
 
     def update_preview(self):
         if self.image is None:
-            print("update_preview: No image loaded")
             self.canvas.delete('all')
             return
         try:
@@ -574,13 +538,6 @@ class PicassoGUI(tk.Frame):
                 print("update_preview: render_preview returned None")
                 self.canvas.delete('all')
                 return
-            if self.brush_mode and self.brush_mask:
-                if self.brush_mode == 'inpaint':
-                    img = fn.apply_inpaint(img, self.brush_mask)
-                elif self.brush_mode == 'bg_blur':
-                    img = fn.apply_background_blur(img, self.brush_mask, self.params['bg_blur_radius'])
-                elif self.brush_mode == 'bg_remove':
-                    img = fn.apply_background_remove(img, self.brush_mask, self.params['bg_remove_strength'])
             cw = max(1, self.canvas.winfo_width() or 800)
             ch = max(1, self.canvas.winfo_height() or 600)
             iw, ih = img.size
@@ -592,10 +549,9 @@ class PicassoGUI(tk.Frame):
             self.canvas.create_image(cw // 2, ch // 2, image=self.tk_image)
             self.canvas.create_text(12, 12, anchor='nw', text=f'{img.size[0]}×{img.size[1]}',
                                     fill=self.secondary_text, font=self.small_font)
-            if self.brush_mode and self.last_cursor_pos:
-                self.update_brush_cursor(x=self.last_cursor_pos[0], y=self.last_cursor_pos[1])
         except Exception as e:
             print(f"update_preview: Error - {traceback.format_exc()}")
+            messagebox.showerror("Ошибка", f"Ошибка при обновлении превью: {str(e)}")
 
     def generate_preset_thumbnails(self):
         if self.image is None:
@@ -623,30 +579,44 @@ class PicassoGUI(tk.Frame):
         except Exception as e:
             print(f"_set_preset_thumbnail: Error for {name} - {traceback.format_exc()}")
 
-    def apply_and_save_dialog(self):
-        if self.image is None:
-            print("apply_and_save_dialog: No image loaded")
+    def apply_changes(self):
+        if self.preview_image is None:
+            messagebox.showerror("Ошибка", "Нет изображения для применения изменений")
             return
         try:
-            res = fn.render_preview(self.image, self.params)
-            if self.brush_mode and self.brush_mask:
-                if self.brush_mode == 'inpaint':
-                    res = fn.apply_inpaint(res, self.brush_mask)
-                elif self.brush_mode == 'bg_blur':
-                    res = fn.apply_background_blur(res, self.brush_mask, self.params['bg_blur_radius'])
-                elif self.brush_mode == 'bg_remove':
-                    res = fn.apply_background_remove(res, self.brush_mask, self.params['bg_remove_strength'])
-            filetypes = [('JPEG', '*.jpg'), ('PNG', '*.png'), ('BMP', '*.bmp'), ('TIFF', '*.tiff')]
-            path = filedialog.asksaveasfilename(defaultextension='.jpg', filetypes=filetypes)
-            if not path:
-                return
-            res.save(path)
-            self.image = res
-            self.brush_mask = None
-            self.brush_mode = None
-            self.canvas.delete('brush_cursor')
-            self.brush_cursor_image = None
-            print(f"apply_and_save_dialog: Saved to {path}")
+            self.history.append(self.image.copy())
+            self.image = self.preview_image.copy()
+            self.canvas.delete('crop_rect')
+            self.params['crop_x'] = 0
+            self.params['crop_y'] = 0
+            self.params['crop_w'] = 0
+            self.params['crop_h'] = 0
+            self.params['rotate'] = 0
+            self.params['mirror'] = False
+            self.params['flip'] = False
             self.update_preview()
+            threading.Thread(target=self.generate_preset_thumbnails, daemon=True).start()
         except Exception as e:
-            print(f"apply_and_save_dialog: Error - {traceback.format_exc()}")
+            print(f"apply_changes: Error - {traceback.format_exc()}")
+            messagebox.showerror("Ошибка", f"Ошибка при применении изменений: {str(e)}")
+
+    def undo_last(self):
+        try:
+            if len(self.history) > 0:
+                self.image = self.history.pop()
+                self.canvas.delete('crop_rect')
+                self.params['crop_x'] = 0
+                self.params['crop_y'] = 0
+                self.params['crop_w'] = 0
+                self.params['crop_h'] = 0
+                self.params['rotate'] = 0
+                self.params['mirror'] = False
+                self.params['flip'] = False
+                self.update_preview()
+                threading.Thread(target=self.generate_preset_thumbnails, daemon=True).start()
+            else:
+                print("undo_last: No history to undo")
+                messagebox.showinfo("Информация", "Нет изменений для отмены")
+        except Exception as e:
+            print(f"undo_last: Error - {traceback.format_exc()}")
+            messagebox.showerror("Ошибка", f"Ошибка при отмене действия: {str(e)}")

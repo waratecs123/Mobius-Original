@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox, filedialog, scrolledtext
 from functions import VoiceEngine
 import os
 import threading
+import time
 from typing import Optional, Callable
 
 class MarilynToneApp:
@@ -37,6 +38,12 @@ class MarilynToneApp:
         self.setup_ui()
         self.setup_bindings()
         self.load_last_settings()
+
+        # Timer for synthesis
+        self.timer_label = None  # Will be set in setup_main_area
+        self.timer_thread = None
+        self.timer_running = False
+        self.start_time = None
 
     def setup_styles(self):
         style = ttk.Style()
@@ -78,6 +85,7 @@ class MarilynToneApp:
                   fieldbackground=[('readonly', '#252525')],
                   selectbackground=[('readonly', self.accent_color)],
                   selectforeground=[('readonly', '#ffffff')])
+        style.configure('TProgressbar', troughcolor='#2d3748', background=self.accent_color)
 
     def setup_ui(self):
         self.root.configure(bg=self.bg_color)
@@ -146,10 +154,18 @@ class MarilynToneApp:
         self.section_title.pack(side="left")
         header_buttons = tk.Frame(header_frame, bg=self.bg_color)
         header_buttons.pack(side="right")
+        ttk.Button(header_buttons, text="Сгенерировать текст", style='Secondary.TButton',
+                   command=self.generate_text).pack(side="left", padx=(5, 0))
+        ttk.Button(header_buttons, text="Прослушать сгенерированное", style='Secondary.TButton',
+                   command=self.synthesize_speech).pack(side="left", padx=(5, 0))
+        ttk.Button(header_buttons, text="Сгенерировать голос", style='Secondary.TButton',
+                   command=self.generate_voice).pack(side="left", padx=(5, 0))
         ttk.Button(header_buttons, text="Вставить", style='Secondary.TButton',
                    command=self.paste_text).pack(side="left", padx=(5, 0))
         ttk.Button(header_buttons, text="Очистить", style='Secondary.TButton',
                    command=self.clear_text).pack(side="left", padx=(5, 0))
+        ttk.Button(header_buttons, text="Импортировать", style='Secondary.TButton',
+                   command=self.import_file).pack(side="left", padx=(5, 0))
         content_frame = tk.Frame(self.main_area, bg=self.bg_color)
         content_frame.pack(fill="both", expand=True)
         input_frame = tk.Frame(content_frame, bg=self.card_color, padx=25, pady=25)
@@ -173,6 +189,12 @@ class MarilynToneApp:
             self.progress_frame, mode='indeterminate', style='TProgressbar'
         )
         self.progress_bar.pack(fill="x")
+        # Ensure timer_label is initialized here
+        self.timer_label = tk.Label(
+            self.progress_frame, text="Время синтеза: 00:00", bg=self.bg_color,
+            fg=self.secondary_text, font=('Arial', 10)
+        )
+        self.timer_label.pack(pady=(5, 0))
         self.progress_frame.pack_forget()
         settings_container = tk.Frame(content_frame, bg=self.card_color, padx=25, pady=20)
         settings_container.pack(fill="x", pady=(0, 15))
@@ -221,8 +243,7 @@ class MarilynToneApp:
                  ).pack(anchor="w", pady=(0, 8))
         effects_frame = tk.Frame(effects_column, bg=self.card_color)
         effects_frame.pack(fill="x")
-        # Pitch Shift
-        self.pitch_shift_var = tk.BooleanVar(value=self.voice_engine.settings['effects']['pitch_shift']['enabled'])
+        self.pitch_shift_var = tk.BooleanVar(value=self.voice_engine.settings['effects'].get('pitch_shift', {}).get('enabled', False))
         tk.Checkbutton(effects_frame, text="Изменение высоты тона", variable=self.pitch_shift_var,
                        bg=self.card_color, fg=self.text_color, selectcolor=self.card_color,
                        activebackground=self.card_color, activeforeground=self.text_color,
@@ -233,15 +254,14 @@ class MarilynToneApp:
             troughcolor="#252525", activebackground=self.accent_color,
             sliderlength=20, length=180, showvalue=False
         )
-        self.pitch_shift_scale.set(self.voice_engine.settings['effects']['pitch_shift']['semitones'])
+        self.pitch_shift_scale.set(self.voice_engine.settings['effects'].get('pitch_shift', {}).get('semitones', 0))
         self.pitch_shift_scale.pack(fill="x", pady=(0, 5))
         self.pitch_shift_label = tk.Label(
             effects_frame, text=f"{self.pitch_shift_scale.get()} полутонов",
             bg=self.card_color, fg=self.accent_color, font=('Arial', 10)
         )
         self.pitch_shift_label.pack(anchor="w")
-        # Volume Adjust
-        self.volume_adjust_var = tk.BooleanVar(value=self.voice_engine.settings['effects']['volume_adjust']['enabled'])
+        self.volume_adjust_var = tk.BooleanVar(value=self.voice_engine.settings['effects'].get('volume_adjust', {}).get('enabled', False))
         tk.Checkbutton(effects_frame, text="Регулировка громкости", variable=self.volume_adjust_var,
                        bg=self.card_color, fg=self.text_color, selectcolor=self.card_color,
                        activebackground=self.card_color, activeforeground=self.text_color,
@@ -252,15 +272,14 @@ class MarilynToneApp:
             troughcolor="#252525", activebackground=self.accent_color,
             sliderlength=20, length=180, showvalue=False
         )
-        self.volume_adjust_scale.set(self.voice_engine.settings['effects']['volume_adjust']['db'])
+        self.volume_adjust_scale.set(self.voice_engine.settings['effects'].get('volume_adjust', {}).get('db', 0))
         self.volume_adjust_scale.pack(fill="x", pady=(0, 5))
         self.volume_adjust_label = tk.Label(
             effects_frame, text=f"{self.volume_adjust_scale.get()} дБ",
             bg=self.card_color, fg=self.accent_color, font=('Arial', 10)
         )
         self.volume_adjust_label.pack(anchor="w")
-        # Reverb
-        self.reverb_var = tk.BooleanVar(value=self.voice_engine.settings['effects']['reverb']['enabled'])
+        self.reverb_var = tk.BooleanVar(value=self.voice_engine.settings['effects'].get('reverb', {}).get('enabled', False))
         tk.Checkbutton(effects_frame, text="Реверберация", variable=self.reverb_var,
                        bg=self.card_color, fg=self.text_color, selectcolor=self.card_color,
                        activebackground=self.card_color, activeforeground=self.text_color,
@@ -271,89 +290,153 @@ class MarilynToneApp:
             troughcolor="#252525", activebackground=self.accent_color,
             sliderlength=20, length=180, showvalue=False
         )
-        self.reverb_scale.set(self.voice_engine.settings['effects']['reverb']['room_scale'])
+        self.reverb_scale.set(self.voice_engine.settings['effects'].get('reverb', {}).get('room_scale', 0))
         self.reverb_scale.pack(fill="x", pady=(0, 5))
         self.reverb_label = tk.Label(
             effects_frame, text=f"Размер комнаты: {self.reverb_scale.get()}",
             bg=self.card_color, fg=self.accent_color, font=('Arial', 10)
         )
         self.reverb_label.pack(anchor="w")
-        btn_frame = tk.Frame(content_frame, bg=self.card_color, padx=25, pady=20)
-        btn_frame.pack(fill="x")
-        self.play_btn = ttk.Button(
-            btn_frame, text="ОЗВУЧИТЬ ТЕКСТ", style='Accent.TButton',
-            command=self.synthesize_speech
+        self.emotion_var = tk.BooleanVar(value=self.voice_engine.settings['effects'].get('emotion', {}).get('enabled', False))
+        tk.Checkbutton(effects_frame, text="Эмоциональность", variable=self.emotion_var,
+                       bg=self.card_color, fg=self.text_color, selectcolor=self.card_color,
+                       activebackground=self.card_color, activeforeground=self.text_color,
+                       command=self.update_effects).pack(anchor="w", pady=(5, 0))
+        self.emotion_combobox = ttk.Combobox(
+            effects_frame, values=['neutral', 'happy', 'sad', 'angry', 'excited', 'calm'],
+            state="readonly", font=self.app_font
         )
-        self.play_btn.pack(side="left", padx=(0, 10), expand=True, fill="x")
-        self.listen_btn = ttk.Button(
-            btn_frame, text="ПРОСЛУШАТЬ ОБРАЗЕЦ", style='Secondary.TButton',
-            command=self.preview_speech
+        self.emotion_combobox.set(self.voice_engine.settings['effects'].get('emotion', {}).get('type', 'neutral'))
+        self.emotion_combobox.pack(fill="x", pady=(0, 5))
+        self.bg_music_var = tk.BooleanVar(value=self.voice_engine.settings['effects'].get('bg_music', {}).get('enabled', False))
+        tk.Checkbutton(effects_frame, text="Фоновая музыка", variable=self.bg_music_var,
+                       bg=self.card_color, fg=self.text_color, selectcolor=self.card_color,
+                       activebackground=self.card_color, activeforeground=self.text_color,
+                       command=self.update_effects).pack(anchor="w", pady=(5, 0))
+        self.bg_music_combobox = ttk.Combobox(
+            effects_frame, values=['none', 'calm_piano', 'epic_orchestral', 'ambient_lofi', 'custom'],
+            state="readonly", font=self.app_font
         )
-        self.listen_btn.pack(side="left", padx=(0, 10), expand=True, fill="x")
-        self.download_btn = ttk.Button(
-            btn_frame, text="СОХРАНИТЬ АУДИО", style='Secondary.TButton',
-            command=self.save_audio
+        self.bg_music_combobox.set(self.voice_engine.settings['effects'].get('bg_music', {}).get('type', 'none'))
+        self.bg_music_combobox.pack(fill="x", pady=(0, 5))
+        self.bg_music_combobox.bind('<<ComboboxSelected>>', self.on_bg_music_selected)
+        self.bg_music_volume_var = tk.DoubleVar(value=self.voice_engine.settings['effects'].get('bg_music', {}).get('volume', 0.3))
+        tk.Label(effects_frame, text="Громкость музыки:", bg=self.card_color,
+                 fg=self.text_color, font=('Arial', 10)).pack(anchor="w", pady=(5, 0))
+        self.bg_music_volume_scale = tk.Scale(
+            effects_frame, from_=0.0, to=1.0, orient=tk.HORIZONTAL,
+            variable=self.bg_music_volume_var, bg=self.card_color, fg=self.text_color,
+            highlightthickness=0, troughcolor="#252525", activebackground=self.accent_color,
+            sliderlength=20, length=180, showvalue=False
         )
-        self.download_btn.pack(side="left", padx=(0, 10), expand=True, fill="x")
-        self.quick_save_btn = ttk.Button(
-            btn_frame, text="БЫСТРОЕ СОХРАНЕНИЕ", style='Secondary.TButton',
-            command=self.quick_save
+        self.bg_music_volume_scale.pack(fill="x", pady=(0, 5))
+        self.bg_music_volume_label = tk.Label(
+            effects_frame, text=f"Громкость: {self.bg_music_volume_var.get():.1f}",
+            bg=self.card_color, fg=self.accent_color, font=('Arial', 10)
         )
-        self.quick_save_btn.pack(side="left", expand=True, fill="x")
-        self.status_bar = tk.Label(
-            self.root, text="Готов к работе • Введите текст и выберите голос",
-            bg=self.bg_color, fg=self.secondary_text, font=('Arial', 10),
-            anchor='w', padx=30, pady=10
-        )
-        self.status_bar.pack(side="bottom", fill="x")
-        self.speed_scale.configure(command=self.update_speed_label)
-        self.pitch_shift_scale.configure(command=self.update_pitch_shift_label)
-        self.volume_adjust_scale.configure(command=self.update_volume_adjust_label)
-        self.reverb_scale.configure(command=self.update_reverb_label)
+        self.bg_music_volume_label.pack(anchor="w")
+        self.bg_music_volume_scale.bind('<Motion>', self.update_bg_music_volume_label)
+        self.bg_music_volume_scale.bind('<ButtonRelease-1>', self.update_bg_music_volume_label)
+        self.pitch_shift_scale.bind('<Motion>', self.update_pitch_shift_label)
+        self.pitch_shift_scale.bind('<ButtonRelease-1>', self.update_pitch_shift_label)
+        self.volume_adjust_scale.bind('<Motion>', self.update_volume_adjust_label)
+        self.volume_adjust_scale.bind('<ButtonRelease-1>', self.update_volume_adjust_label)
+        self.reverb_scale.bind('<Motion>', self.update_reverb_label)
+        self.reverb_scale.bind('<ButtonRelease-1>', self.update_reverb_label)
+        self.emotion_combobox.bind('<<ComboboxSelected>>', self.update_effects)
+        self.status_bar = tk.Label(self.main_area, text="Готов к работе", bg=self.bg_color,
+                                   fg=self.secondary_text, font=('Arial', 10), anchor='w')
+        self.status_bar.pack(side="bottom", fill="x", pady=(10, 0))
+        controls_frame = tk.Frame(content_frame, bg=self.card_color, padx=25, pady=15)
+        controls_frame.pack(fill="x")
+        self.play_btn = ttk.Button(controls_frame, text="ОЗВУЧИТЬ", style='Accent.TButton',
+                                   command=self.synthesize_speech)
+        self.play_btn.pack(side="left", padx=(0, 10))
+        self.listen_btn = ttk.Button(controls_frame, text="ПРОСЛУШАТЬ ЭФФЕКТЫ", style='Secondary.TButton',
+                                     command=self.preview_effects)
+        self.listen_btn.pack(side="left", padx=(0, 10))
+        self.download_btn = ttk.Button(controls_frame, text="СОХРАНИТЬ АУДИО", style='Secondary.TButton',
+                                       command=self.save_audio)
+        self.download_btn.pack(side="left", padx=(0, 10))
+        self.quick_save_btn = ttk.Button(controls_frame, text="БЫСТРОЕ СОХРАНЕНИЕ", style='Secondary.TButton',
+                                         command=self.quick_save)
+        self.quick_save_btn.pack(side="left", padx=(0, 10))
         self.setup_context_menu(self.text_input)
 
     def setup_bindings(self):
-        self.root.protocol("WM_DELETE_WINDOW", self.safe_exit)
-        self.root.bind('<Escape>', lambda e: self.safe_exit())
-        self.root.bind('<Control-n>', lambda e: self.new_file())
-        self.root.bind('<Control-o>', lambda e: self.open_file())
-        self.root.bind('<Control-s>', lambda e: self.save_file())
-        self.root.bind('<Control-q>', lambda e: self.safe_exit())
-        self.root.bind('<Control-z>', lambda e: self.undo_text())
-        self.root.bind('<Control-y>', lambda e: self.redo_text())
-        self.root.bind('<Control-a>', lambda e: self.select_all())
+        self.root.bind('<Control-n>', lambda event: self.new_file())
+        self.root.bind('<Control-o>', lambda event: self.open_file())
+        self.root.bind('<Control-s>', lambda event: self.save_file())
+        self.root.bind('<Control-z>', lambda event: self.undo_text())
+        self.root.bind('<Control-y>', lambda event: self.redo_text())
+        self.root.bind('<Control-a>', lambda event: self.select_all())
+        self.root.bind('<Control-q>', lambda event: self.safe_exit())
+
+    def update_pitch_shift_label(self, event=None):
+        self.pitch_shift_label.config(text=f"{self.pitch_shift_scale.get()} полутонов")
+        self.update_effects()
+
+    def update_volume_adjust_label(self, event=None):
+        self.volume_adjust_label.config(text=f"{self.volume_adjust_scale.get()} дБ")
+        self.update_effects()
+
+    def update_reverb_label(self, event=None):
+        self.reverb_label.config(text=f"Размер комнаты: {self.reverb_scale.get()}")
+        self.update_effects()
+
+    def update_bg_music_volume_label(self, event=None):
+        self.bg_music_volume_label.config(text=f"Громкость: {self.bg_music_volume_var.get():.1f}")
+        self.update_effects()
 
     def safe_exit(self):
-        try:
-            self.voice_engine.stop_speech()
-            self.save_current_text()
-            self.root.quit()
-            self.root.destroy()
-        except:
-            os._exit(0)
-
-    def update_speed_label(self, value):
-        self.speed_var.set(int(float(value)))
-
-    def update_pitch_shift_label(self, value):
-        self.pitch_shift_label.config(text=f"{int(float(value))} полутонов")
-        self.update_effects()
-
-    def update_volume_adjust_label(self, value):
-        self.volume_adjust_label.config(text=f"{int(float(value))} дБ")
-        self.update_effects()
-
-    def update_reverb_label(self, value):
-        self.reverb_label.config(text=f"Размер комнаты: {int(float(value))}")
-        self.update_effects()
+        if self.text_input.get("1.0", tk.END).strip():
+            if messagebox.askyesno("Выход", "Сохранить текущий текст перед выходом?"):
+                self.save_file()
+        self.root.destroy()
 
     def update_effects(self):
         self.voice_engine.settings['effects'] = {
             'pitch_shift': {'enabled': self.pitch_shift_var.get(), 'semitones': self.pitch_shift_scale.get()},
             'volume_adjust': {'enabled': self.volume_adjust_var.get(), 'db': self.volume_adjust_scale.get()},
-            'reverb': {'enabled': self.reverb_var.get(), 'room_scale': self.reverb_scale.get()}
+            'reverb': {'enabled': self.reverb_var.get(), 'room_scale': self.reverb_scale.get()},
+            'emotion': {'enabled': self.emotion_var.get(), 'type': self.emotion_combobox.get()},
+            'bg_music': {'enabled': self.bg_music_var.get(), 'type': self.bg_music_combobox.get(), 'volume': self.bg_music_volume_var.get()}
         }
         self.voice_engine.save_settings()
+
+    def on_bg_music_selected(self, event=None):
+        if self.bg_music_combobox.get() == 'custom':
+            file_path = filedialog.askopenfilename(
+                filetypes=[("Аудиофайлы", "*.mp3 *.wav"), ("Все файлы", "*.*")]
+            )
+            if file_path:
+                self.voice_engine.settings['effects']['bg_music']['custom_path'] = file_path
+                self.update_effects()
+                self.status_bar.config(text=f"Выбрана пользовательская музыка: {os.path.basename(file_path)}")
+            else:
+                self.bg_music_combobox.set('none')
+                self.update_effects()
+
+    def generate_text(self):
+        try:
+            generated_text = "Это пример сгенерированного текста для озвучивания."
+            self.text_input.delete("1.0", tk.END)
+            self.text_input.insert("1.0", generated_text)
+            self.update_text_stats()
+            self.status_bar.config(text="Текст сгенерирован", fg=self.success_color)
+        except Exception as e:
+            self.status_bar.config(text=f"Ошибка генерации текста: {str(e)}", fg=self.error_color)
+
+    def preview_effects(self):
+        text = "Это тестовый текст для предварительного прослушивания эффектов."
+        voice_idx = self.voice_combobox.current()
+        speed = self.speed_var.get()
+        self.show_processing(True)
+        self.status_bar.config(text="Предпросмотр эффектов...")
+        def callback(success, message):
+            self.root.after(0, lambda: self.show_processing(False))
+            self.root.after(0, lambda: self.update_status(success, message))
+        self.voice_engine.text_to_speech(text, voice_idx, speed, None, callback)
 
     def setup_context_menu(self, text_widget):
         menu = tk.Menu(text_widget, tearoff=0, bg="#353535", fg=self.text_color, bd=0)
@@ -387,6 +470,7 @@ class MarilynToneApp:
             info_text += f"Пол: {gender} • Тип: {system}\n"
             info_text += f"Языки: {languages}"
             self.voice_info_label.config(text=info_text)
+        self.voice_engine.save_settings()
 
     def update_text_stats(self, event=None):
         text = self.text_input.get("1.0", tk.END).strip()
@@ -447,12 +531,17 @@ class MarilynToneApp:
 
     def open_file(self):
         file_path = filedialog.askopenfilename(
-            filetypes=[("Текстовые файлы", "*.txt"), ("Все файлы", "*.*")]
+            filetypes=[("Текстовые файлы", "*.txt *.md *.csv *.json *.log *.ini *.yaml *.yml"),
+                       ("PDF файлы", "*.pdf"),
+                       ("Word файлы", "*.docx"),
+                       ("RTF файлы", "*.rtf"),
+                       ("Все файлы", "*.*")]
         )
         if file_path:
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
+                content = self.voice_engine.import_text(file_path)
+                if not content:
+                    raise ValueError("Файл пустой или не содержит читаемого текста")
                 self.text_input.delete("1.0", tk.END)
                 self.text_input.insert("1.0", content)
                 self.update_text_stats()
@@ -490,6 +579,12 @@ class MarilynToneApp:
             self.download_btn.config(state='disabled')
             self.quick_save_btn.config(state='disabled')
             self.stop_btn.config(state='normal')
+            # Start timer
+            self.start_time = time.time()
+            self.timer_running = True
+            if self.timer_thread is None or not self.timer_thread.is_alive():
+                self.timer_thread = threading.Thread(target=self.update_timer, daemon=True)
+                self.timer_thread.start()
         else:
             self.progress_frame.pack_forget()
             self.progress_bar.stop()
@@ -498,6 +593,21 @@ class MarilynToneApp:
             self.download_btn.config(state='normal')
             self.quick_save_btn.config(state='normal')
             self.stop_btn.config(state='disabled')
+            # Stop timer
+            self.timer_running = False
+            if self.timer_label:  # Check if timer_label exists
+                self.timer_label.config(text="Время синтеза: 00:00")
+
+    def update_timer(self):
+        while self.timer_running:
+            if not self.timer_label:  # Check if timer_label exists
+                time.sleep(0.1)
+                continue
+            elapsed = time.time() - self.start_time
+            minutes = int(elapsed // 60)
+            seconds = int(elapsed % 60)
+            self.root.after(0, lambda: self.timer_label.config(text=f"Время синтеза: {minutes:02d}:{seconds:02d}"))
+            time.sleep(0.1)
 
     def update_status(self, success, message):
         color = self.success_color if success else self.error_color
@@ -520,7 +630,31 @@ class MarilynToneApp:
             self.root.after(0, lambda: self.update_status(success, message))
         self.voice_engine.text_to_speech(text, voice_idx, speed, None, callback)
 
-    def preview_speech(self):
+    def generate_voice(self):
+        text = self.text_input.get("1.0", tk.END).strip()
+        if not text:
+            messagebox.showwarning("Предупреждение", "Введите текст для озвучивания")
+            return
+        voice_idx = self.voice_combobox.current()
+        voice = self.voice_engine.get_voice_info(voice_idx)
+        file_ext = ".mp3" if voice['api'] in ['gtts', 'edge_tts'] else ".wav"
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=file_ext,
+            filetypes=[("MP3 файлы", "*.mp3") if voice['api'] in ['gtts', 'edge_tts'] else ("WAV файлы", "*.wav"),
+                       ("Все файлы", "*.*")]
+        )
+        if file_path:
+            speed = self.speed_var.get()
+            self.show_processing(True)
+            self.status_bar.config(text="Генерация голоса...")
+            def callback(success, message):
+                self.root.after(0, lambda: self.show_processing(False))
+                self.root.after(0, lambda: self.update_status(success, message))
+                if success:
+                    self.status_bar.config(text=f"Голос сгенерирован и сохранен: {os.path.basename(file_path)}")
+            self.voice_engine.text_to_speech(text, voice_idx, speed, file_path, callback)
+
+    def preview_selected_voice(self):
         voice_idx = self.voice_combobox.current()
         self.show_processing(True)
         self.status_bar.config(text="Воспроизведение образца голоса...")
@@ -528,9 +662,6 @@ class MarilynToneApp:
             self.root.after(0, lambda: self.show_processing(False))
             self.root.after(0, lambda: self.update_status(success, message))
         self.voice_engine.preview_voice(voice_idx, callback)
-
-    def preview_selected_voice(self):
-        self.preview_speech()
 
     def stop_playback(self):
         self.voice_engine.stop_speech()
@@ -580,6 +711,9 @@ class MarilynToneApp:
                 self.status_bar.config(text=f"Аудио сохранено: {os.path.basename(file_path)}")
         self.voice_engine.text_to_speech(text, voice_idx, speed, file_path, callback)
 
+    def import_file(self):
+        self.open_file()
+
     def change_output_folder(self):
         folder = filedialog.askdirectory(
             initialdir=self.voice_engine.settings['output_folder']
@@ -598,13 +732,16 @@ class MarilynToneApp:
     def show_about(self):
         about_text = (
             "Marilyn Tone - Профессиональный синтезатор речи\n\n"
-            "Версия: 2.1\n"
+            "Версия: 2.4\n"
             "Разработчик: Marilyn Team\n\n"
             "Возможности:\n"
             "• Синтез речи на разных языках\n"
             "• Сохранение в MP3 (gTTS, Edge TTS) и WAV (pyttsx3)\n"
-            "• Настройка скорости и голосов\n"
+            "• Настройка скорости, эмоций и голосов\n"
             "• Аудио эффекты: высота тона, громкость, реверберация\n"
+            "• Фоновая музыка с регулировкой громкости\n"
+            "• Поддержка пауз: <пауза: X сек>\n"
+            "• Импорт текста из любых текстовых файлов и PDF\n"
             "• История текста и отмена действий\n\n"
             "© 2025 Marilyn Tone. Все права защищены."
         )
@@ -614,18 +751,21 @@ class MarilynToneApp:
         help_text = (
             "📖 Руководство пользователя Marilyn Tone\n\n"
             "🔹 Основные функции:\n"
-            "• Введите текст в поле ввода\n"
+            "• Введите текст или импортируйте из файла (текстовые файлы, PDF, .docx, .rtf)\n"
+            "• Используйте теги <пауза: X сек> для вставки пауз\n"
             "• Выберите голос из списка\n"
-            "• Настройте скорость речи и эффекты\n"
-            "• Нажмите 'Озвучить' для воспроизведения\n"
+            "• Настройте скорость речи, эмоции и эффекты\n"
+            "• Нажмите 'Озвучить' или 'Прослушать сгенерированное' для воспроизведения\n"
             "• Используйте 'Сохранить аудио' для экспорта\n\n"
             "🔹 Эффекты:\n"
             "• Изменение высоты тона: регулирует тональность голоса\n"
             "• Регулировка громкости: изменяет уровень громкости\n"
-            "• Реверберация: добавляет эффект эха\n\n"
+            "• Реверберация: добавляет эффект эха\n"
+            "• Эмоциональность: придает голосу эмоциональный окрас\n"
+            "• Фоновая музыка: добавляет фоновый трек с регулировкой громкости\n\n"
             "🔹 Горячие клавиши:\n"
             "Ctrl+N - Новый файл\n"
-            "Ctrl+O - Открыть файл\n"
+            "Ctrl+O - Импортировать файл\n"
             "Ctrl+S - Сохранить текст\n"
             "Ctrl+Z - Отменить\n"
             "Ctrl+Y - Повторить\n"
@@ -633,9 +773,7 @@ class MarilynToneApp:
             "Ctrl+Q - Выход\n\n"
             "🔹 Советы:\n"
             "• Используйте правую кнопку мыши для контекстного меню\n"
-            "• Прослушайте образец голоса перед озвучкой\n"
-            "• Настройте эффекты для уникального звучания\n"
-            "• Проверяйте статистику текста для оценки времени"
+            "• Настройте баланс громкости для идеального микса с фоновой музыки"
         )
         help_window = tk.Toplevel(self.root)
         help_window.title("Справка - Marilyn Tone")

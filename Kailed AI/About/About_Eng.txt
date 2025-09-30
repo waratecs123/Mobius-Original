@@ -1,0 +1,23 @@
+Kailed AI is a powerful generator of abstract patterns and textures for PC,
+which goes beyond standard functions. The application allows you to create
+both random compositions and meticulously configured patterns with support
+for gradients, complex algorithms and artistic effects. Various types of
+patterns are supported: from Mandelbrot fractals and Voronoi diagrams to
+geometric primitives, wave interference and kaleidoscopic ornaments, while
+the built-in editor allows you to customize colors, sizes and element density
+without loss of quality.
+
+The program stands out with unique features such as combining multiple
+patterns in one composition, AI optimization of visual complexity and an
+advanced post-processing system with filters and effects. For creativity,
+gradient fill tools, Perlin noise generation and pseudo-3D structure creation
+are provided. Kailed AI also supports high-resolution export, batch processing
+and works offline, making it a universal tool for designers, artists and
+digital creators.
+
+Kailed AI offers an intuitive interface with three main modes: random creation
+for instant inspiration, custom mode for precise control and history for saving
+and managing previous works. The application is optimized for different screen
+resolutions, supports zooming and saving in PNG/JPEG formats. This is the
+perfect solution for those who want to turn algorithmic magic into unique
+visual artworks.
