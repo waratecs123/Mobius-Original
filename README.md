@@ -1,3 +1,5 @@
+# РУССКАЯ ВЕРСИЯ:
+---
 # Möbius: Единая Платформа для Цифрового Творчества
 
 [![Лицензия](https://img.shields.io/badge/Лицензия-Проприетарная-blue.svg)](https://github.com/your-username/mobius)
@@ -29,9 +31,12 @@ Möbius — это единая платформа, содержащая эти 
 | **🗣 Marilyn Tone** | Движок для синтеза речи и распознавания голоса с уникальными настраиваемыми «голосовыми персонажами». |
 | **🥁 Newton Flow** | MIDI-контроллер, превращающий ваш тачпад в инструмент для создания битов в любое время и в любом месте. |
 | **🎨 Picasso Art** | Продвинутый растровый и векторный графический редактор, оснащённый инструментами на основе ИИ для создания потрясающих визуальных эффектов. |
+| **🎨 Picasso Art Lite** | Облегченная и высокоскоростная версия профессионального редактора Picasso Art. Идеально подходит для повседневных задач: ретушь фото, подготовка изображений для соцсетей, цветокоррекция и кадрирование. |
 | **🧊 Michael Byte** | Создавайте крутой 3D-текст и экспортируйте его в PNG или JPG для своих проектов. |
 | **🎥 Tarantino Catch** | Записывайте экран и веб-камеру с гибкими настройками качества и источника. |
 | **🌀 Kailed AI** | Мощный генератор абстрактных узоров и текстур с поддержкой фракталов, градиентов и AI-оптимизации визуальной сложности. |
+| **🎨 Mondrian Grid** | Профессиональное приложение для анализа цвета и работы с палитрами. Поддерживает извлечение доминирующих цветов из изображений, генерацию цветовых гармоний и создание тематических схем. |
+| **🎵 William Wave** | Профессиональное аудио-редактирующее приложение с современным графическим интерфейсом. Предоставляет комплексный набор инструментов для обработки звука, включая эквалайзер, компрессию, реверберацию и шумоподавление. |
 
 ## 🚀 Начало работы
 
@@ -69,6 +74,9 @@ Möbius постоянно развивается. Вот взгляд в наш
 
 ---
 
+
+# ENGLISH VERSION:
+---
 # Möbius: The Unified Platform for Digital Creation
 
 [![License](https://img.shields.io/badge/License-Proprietary-blue.svg)](https://github.com/your-username/mobius)
@@ -100,9 +108,12 @@ Möbius is a unified platform containing these powerful, specialized application
 | **🗣 Marilyn Tone** | A speech synthesis and voice recognition engine with unique, customizable "voice personas". |
 | **🥁 Newton Flow** | A MIDI controller that turns your touchpad into an instrument for making beats anytime, anywhere. |
 | **🎨 Picasso Art** | An advanced raster and vector graphics editor, equipped with AI-powered tools for stunning visuals. |
+| **🎨 Picasso Art Lite** | A lightweight and high-speed version of the professional Picasso Art editor. Perfect for everyday tasks: photo retouching, social media image preparation, color correction and cropping. |
 | **🧊 Michael Byte** | Create cool 3D text and export it to PNG or JPG for your projects. |
 | **🎥 Tarantino Catch** | Record your screen and webcam with flexible quality and source settings. |
 | **🌀 Kailed AI** | A powerful generator of abstract patterns and textures with support for fractals, gradients, and AI-optimized visual complexity. |
+| **🎨 Mondrian Grid** | Professional color analysis and palette application. Supports extracting dominant colors from images, generating color harmonies and creating thematic schemes. |
+| **🎵 William Wave** | Professional audio editing application with modern GUI. Provides a comprehensive set of sound processing tools including equalizer, compression, reverb and noise reduction. |
 
 ## 🚀 Getting Started
 
