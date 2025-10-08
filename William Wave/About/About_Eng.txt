@@ -1,0 +1,19 @@
+William Wave is a professional audio editing application with a modern
+graphical interface, developed in Python. The program provides a comprehensive
+set of audio processing tools including equalizer, compression, reverb,
+delay, chorus, distortion, and noise reduction. The interface features
+a dark color scheme with indigo accents, ensuring comfortable use during
+extended sessions.
+
+The application supports importing major audio formats (WAV, FLAC, AIFF),
+real-time audio recording, and exporting processed files. William Wave is
+equipped with an advanced visualization system featuring waveform display,
+spectrogram, frequency spectrum, and amplitude histogram. All changes are
+applied in real-time using background stream processing, allowing instant
+evaluation of adjustments.
+
+William Wave stands out with its optimized architecture – it efficiently
+utilizes multithreading for non-blocking interface operation and includes
+an intelligent deferred effects application system for smooth performance.
+The application is suitable for both quick audio processing and fine professional
+sound tuning, offering over 30 adjustable parameters for precise sound control.

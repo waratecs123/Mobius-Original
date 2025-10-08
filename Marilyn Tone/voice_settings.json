@@ -1,6 +1,11 @@
 {
   "last_voice_index": 11,
   "last_speed": 150,
+  "last_volume": 1.0,
+  "last_pitch": 0,
+  "last_echo": false,
+  "last_reverb_intensity": 0,
+  "last_volume_db": 0,
   "output_folder": "C:\\Users\\USER\\Documents\\MarilynTone",
   "auto_save": false,
   "effects": {

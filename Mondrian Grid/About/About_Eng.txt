@@ -1,0 +1,20 @@
+Mondrian Grid is a professional color analysis and palette management
+application developed in Python. The program provides a comprehensive
+set of tools for extracting dominant colors from images, generating
+color harmonies, and creating thematic color schemes. The interface
+features a dark color scheme with indigo accents, ensuring comfortable
+use during extended sessions.
+
+The application supports image analysis using the K-means algorithm
+for accurate identification of main colors, palette mood classification,
+and harmony generation based on various schemes (analogous, complementary,
+triadic, and others). Mondrian Grid is equipped with advanced tools
+for conversion between color models (HEX, RGB, HSL) and contrast
+checking according to WCAG standards.
+
+Mondrian Grid stands out with its optimized architecture – it includes
+a palette history system with automatic saving, a theme constructor
+for web design, and support for export to various formats (CSS, SCSS,
+GIMP Palette, JSON, PNG). The application is suitable for both quick
+image analysis and professional color work in design and interface
+development.
